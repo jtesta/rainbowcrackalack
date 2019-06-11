@@ -1,0 +1,1 @@
+The 'random_ntlm_hashes_8_chars_101.txt' file contains 101 random 8-character NTLM hashes.  Cracking them against the NTLM 8 disk of tables will yield the included 'rainbowcrackalack_jtr.pot' file (pre-sorted).  Sort the 'rainbowcrackalack_jtr.pot' file you produce and compare it with this one; the test is successful if there are no differences between the two.

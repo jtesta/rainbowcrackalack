@@ -14,7 +14,11 @@ unsigned int get_optimal_gws(cl_device_id device) {
   get_device_str(device, CL_DEVICE_NAME, name, sizeof(name) - 1);
 
   if (strcmp(vendor, "NVIDIA Corporation") == 0) {
-    if (strcmp(name, "GeForce GTX 1070 Ti") == 0)
+    if (strcmp(name, "GeForce GTX 1080 Ti") == 0)
+      return 28 * 768; /* Guess based on the 1070 & 1070 Ti's performance. */
+    else if (strcmp(name, "GeForce GTX 1080") == 0)
+      return 20 * 768; /* Guess based on the 1070 & 1070 Ti's performance. */
+    else if (strcmp(name, "GeForce GTX 1070 Ti") == 0)
       return 19 * 768; /* NTLM 8-char: ?/s */
 
     else if (strcmp(name, "GeForce GTX 1070") == 0)

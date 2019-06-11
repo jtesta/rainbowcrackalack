@@ -213,10 +213,11 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
       fprintf(stderr, "Error while getting device IDs on platform #%u; clGetDeviceIDs() returned: %d.\n", i, err);
     else if (n < 1)
       fprintf(stderr, "Platform #%u has < 1 devices!\n", i);
-
-    *num_devices += n;
-    if (verbose)
-      printf("Found %u devices on platform #%u.\n", *num_devices, i);
+    else {
+      *num_devices += n;
+      if (verbose)
+	printf("Found %u devices on platform #%u.\n", *num_devices, i);
+    }
   }
 
   if (verbose)

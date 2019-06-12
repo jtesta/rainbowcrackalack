@@ -1,4 +1,14 @@
 *~
+*.o
+*.exe
+*.zip
 *.pyc
 rcracki.precalc.*
 *.rt
+crackalack_gen
+crackalack_lookup
+crackalack_rtc2rt
+crackalack_unit_tests
+crackalack_verify
+get_chain
+perfectify

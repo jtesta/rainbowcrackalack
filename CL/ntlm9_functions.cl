@@ -154,7 +154,7 @@ inline unsigned long hash_ntlm9(unsigned char *plaintext) {
 
 
 inline unsigned long hash_to_index_ntlm9(unsigned long hash, unsigned int pos) {
-  return (hash + pos) % 6634204312890625UL;
+  return (hash + pos) % 630249409724609375UL;
 }
 
 
@@ -175,5 +175,5 @@ inline unsigned long hash_char_to_index_ntlm9(__global unsigned char *hash_value
   ret <<= 8;
   ret |= hash_value[0];
 
-  return (ret + pos) % 6634204312890625UL;
+  return (ret + pos) % 630249409724609375UL;
 }

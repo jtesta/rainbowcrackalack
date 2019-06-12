@@ -1,18 +1,11 @@
 __constant char charset[] = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
 
 
-/* Since nobody else has made 9-character rainbow tables, we're free to take some of
- * our own artistic liberties...
- *
- * We have a 64-bit number that we need to map to a 9-character plaintext.  This
- * means if the character set is of length 128 or less, we can break the number into
- * nine 7-bit fragments, and use them to index into the character set.  This ends up
- * being 2.4x faster than the standard division method (below)! */
 inline void index_to_plaintext_ntlm9(unsigned long index, __constant char *charset, unsigned char *plaintext) {
 
-  for (int i = 0; i < 9; i++) {
-    plaintext[i] = charset[ (index & 0xff) % 95 ];  // TODO: is the 0xff necessary?
-    index >>= 7;
+  for (int i = 8; i >= 0; i--) {
+    plaintext[i] = index % 95 + 32;
+    index /= 95;
   }
 
   return;
@@ -154,7 +147,7 @@ inline unsigned long hash_ntlm9(unsigned char *plaintext) {
 
 
 inline unsigned long hash_to_index_ntlm9(unsigned long hash, unsigned int pos) {
-  return (hash + pos) % 6634204312890625UL;
+  return (hash + pos) % 630249409724609375UL;
 }
 
 
@@ -175,5 +168,5 @@ inline unsigned long hash_char_to_index_ntlm9(__global unsigned char *hash_value
   ret <<= 8;
   ret |= hash_value[0];
 
-  return (ret + pos) % 6634204312890625UL;
+  return (ret + pos) % 630249409724609375UL;
 }

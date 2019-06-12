@@ -17,6 +17,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+/*#include <versionhelpers.h>*/
 #define STATUS_SUCCESS 0
 #else
 #include <string.h>
@@ -74,6 +75,30 @@ long get_file_size(FILE *f) {
   }
 
   return ret;
+}
+
+
+/* Returns the OS name. */
+char *get_os_name() {
+#ifdef _WIN32
+  return "Windows";
+
+  /* We can't get accurate info on Windows 10 without specifying an application XML manifest, which is too much of a pain at the moment... */
+  /*
+  if (IsWindowsVersionOrGreater(10, 0, 0))  * Ubuntu 18's MinGW doesn't have IsWindows10OrGreater(). *
+    return "Windows 10";
+  else if (IsWindows8Point1OrGreater())
+    return "Windows 8.1";
+  else if (IsWindows8OrGreater())
+    return "Windows 8";
+  else if (IsWindows7OrGreater())
+    return "Windows 7";
+  else
+    return "An old version of Windows";
+  */
+#else
+  return "Linux";
+#endif
 }
 
 

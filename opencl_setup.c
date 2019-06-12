@@ -194,6 +194,8 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
     opencl_initialized = 1;
   }
 
+  if (verbose)
+    printf("Operating system: %s\n", get_os_name());
 
   if (rc_clGetPlatformIDs(platforms_buffer_size, platforms, num_platforms) < 0) {
     fprintf(stderr, "Failed to get platform IDs.  Are the OpenCL drivers installed?\n");

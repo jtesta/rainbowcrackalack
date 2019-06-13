@@ -2,13 +2,34 @@ __constant char charset[] = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQ
 
 
 inline void index_to_plaintext_ntlm8(unsigned long index, __constant char *charset, unsigned char *plaintext) {
+  // divide and modulo index by 95**4
+  unsigned int indexHi = (unsigned int) (index / 81450625);
+  unsigned int indexLo = (unsigned int) (index - (unsigned long) 81450625 * indexHi);
 
-  for (int i = 7; i >= 0; i--) {
-    plaintext[i] = charset[index % 95];
-    index = index / 95;
-  }
+  // divide and modulo indexHi and indexLo by 95**2
+  unsigned short index0 = (unsigned short) (indexHi / 9025);
+  unsigned short index1 = (unsigned short) (indexHi - (unsigned int) 9025 * index0);
+  unsigned short index2 = (unsigned short) (indexLo / 9025);
+  unsigned short index3 = (unsigned short) (indexLo - (unsigned int) 9025 * index2);
 
-  return;
+  unsigned char tmp;
+
+  // divide and modulo index0 thru index3 by 95
+  tmp = (unsigned char) (index0 / 95);
+  plaintext[0] = tmp + 32;
+  plaintext[1] = (unsigned char) (index0 - (unsigned short) 95 * tmp + 32);
+
+  tmp = (unsigned char) (index1 / 95);
+  plaintext[2] = tmp + 32;
+  plaintext[3] = (unsigned char) (index1 - (unsigned short) 95 * tmp + 32);
+
+  tmp = (unsigned char) (index2 / 95);
+  plaintext[4] = tmp + 32;
+  plaintext[5] = (unsigned char) (index2 - (unsigned short) 95 * tmp + 32);
+
+  tmp = (unsigned char) (index3 / 95);
+  plaintext[6] = tmp + 32;
+  plaintext[7] = (unsigned char) (index3 - (unsigned short) 95 * tmp + 32);
 }
 
 

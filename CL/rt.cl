@@ -8,29 +8,6 @@
 #endif
 
 inline void index_to_plaintext(unsigned long index, char *charset, unsigned int charset_len, unsigned int plaintext_len_min, unsigned int plaintext_len_max, unsigned long *plaintext_space_up_to_index, unsigned char *plaintext, unsigned int *plaintext_len) {
-
-
-  /* Since nobody else has made 9-character rainbow tables, we're free to take some of
-   * our own artistic liberties...
-   *
-   * We have a 64-bit number that we need to map to a 9-character plaintext.  This
-   * means if the character set is of length 128 or less, we can break the number into
-   * nine 7-bit fragments, and use them to index into the character set.  This ends up
-   * being 2.4x faster than the standard division method (below)! */
-
-  /* For speed, we only check that the minimum length is 9, and assume that the max is
-   * also 9, and that the character set is 128 characters or less. */
-  if (plaintext_len_min == 9) {
-    *plaintext_len = 9;
-
-    for (int i = 0; i < 9; i++) {
-      plaintext[i] = charset[ (index & 0xff) % charset_len ];
-      index >>= 7;
-    }
-
-    return;
-  }
-
   for (int i = plaintext_len_max - 1; i >= plaintext_len_min - 1; i--) {
     if (index >= plaintext_space_up_to_index[i]) {
       *plaintext_len = i + 1;

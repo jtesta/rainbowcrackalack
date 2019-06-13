@@ -11,8 +11,8 @@ __constant char charset[] = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQ
 inline void index_to_plaintext_ntlm9(unsigned long index, __constant char *charset, unsigned char *plaintext) {
 
   for (int i = 0; i < 9; i++) {
-    plaintext[i] = charset[ (index & 0xff) % 95 ];  // TODO: is the 0xff necessary?
-    index >>= 7;
+    plaintext[i] = charset[ index % 95 ];
+    index /= 95;
   }
 
   return;

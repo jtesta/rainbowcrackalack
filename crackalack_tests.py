@@ -63,7 +63,7 @@ GEN_TESTS = {
     '3203f5596449254dc8f0639a8bbf54555c911aebc69d018b1e45cf0e8be27086':
         ['ntlm', 'ascii-32-95', '8', '8', '0', '422000', '10240', '0'],
 
-    'd2cc84717ad29e7018ba4ef41f36d8f98b1b55bc8cf1613797dd0ca0143708f7':
+    'c3e6a35810e2a70bac583cd9767d6181aa026fbb53325f230aa48b863c274b06':
         ['ntlm', 'ascii-32-95', '9', '9', '0', '10240', '10240', '666'],
 
     # Optimized NTLM9 kernel test.
@@ -78,7 +78,7 @@ GEN_TESTS = {
 PRECOMP_TESTS = {
     0: {'table': 'ntlm_loweralpha#8-8_0_100x1024_0.rt', 'password_hash': '49e5bfaab1be72a6c5236f15736a3e15', 'precalc_hash': '19d665d6181415aa70f8c5487585a778526b4ca39ccb5dcfb04f7a0bc508593b', 'index_hash': '0a4a8f162529d5e41f8df5e0a5438ff3890ca7f7dbbec2599eac8d15ca0c2e03'},
     1: {'table': 'ntlm_ascii-32-95#8-8_16_100x1024_0.rt', 'password_hash': '49e5bfaab1be72a6c5236f15736a3e15', 'precalc_hash': '79b4cf5ccae26544d35aacd424fd97c39e024c9e5430c6c546e99f6dfd2dccf0', 'index_hash': '183c7687853f9344e8c047bf3d5f30b627988a233e2a6cafb71ee00151aa536f'},
-    2: {'table': 'ntlm_ascii-32-95#9-9_1024_100x1024_0.rt', 'password_hash': '49e5bfaab1be72a6c5236f15736a3e15', 'precalc_hash': '8c201e0686f2fe32b78a9c207b6f6a753c40fda689df88e5259a2e854bc68c12', 'index_hash': 'ea7081e000872ec06a115e068643048dcdecda047fe665ef6ca74ee68dd7e384'},
+    2: {'table': 'ntlm_ascii-32-95#9-9_1024_100x1024_0.rt', 'password_hash': '49e5bfaab1be72a6c5236f15736a3e15', 'precalc_hash': 'feadc19362a8daa7291ae60f1ee5b68b059f42cd7287dd7044b4535876f30142', 'index_hash': 'ea7081e000872ec06a115e068643048dcdecda047fe665ef6ca74ee68dd7e384'},
 }
 
 pot_filename = 'temp.pot'

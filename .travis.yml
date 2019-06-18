@@ -1,0 +1,11 @@
+sudo: required
+dist: xenial
+language: c
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq gcc-mingw-w64-x86-64
+
+script:
+  - make
+  - ./make_windows.sh

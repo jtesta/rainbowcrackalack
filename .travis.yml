@@ -4,8 +4,8 @@ language: c
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq cpio gcc-mingw-w64-x86-64 opencl-headers
-  - ./scripts/travis_install_intel_opencl.sh
+  - sudo apt-get install -qq gcc-mingw-w64-x86-64 opencl-headers
+  - sudo ./scripts/travis_install_intel_opencl.sh
 
 script:
   - make && ./crackalack_unit_tests

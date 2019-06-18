@@ -150,6 +150,7 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
   unsigned int i = 0;
   cl_int err = 0;
   cl_uint n = 0;
+  cl_device_type device_type = CL_DEVICE_TYPE_GPU;
 
 
   *num_platforms = 0;
@@ -160,6 +161,8 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
     ocl = rc_dlopen("OpenCL"); /* Windows */
 #else
     ocl = rc_dlopen("libOpenCL.so"); /* Linux */
+    if (ocl == NULL) /* See if the Intel OpenCL driver is available... */
+      ocl = rc_dlopen("libOpenCL.so.1");
 #endif
     if (ocl == NULL) {
       fprintf(stderr, "\nFailed to open OpenCL library.  Are the GPU drivers properly installed?\nError: %s\n\n", rc_dlerror());
@@ -207,8 +210,14 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
   if (verbose)
     printf("Found %u platforms.\n", *num_platforms);
 
+#ifdef TRAVIS_BUILD
+  device_type = CL_DEVICE_TYPE_CPU;
+  printf("\n\n\t!!! WARNING !!!\n\nThis is a Travis build; it is only intended for developer testing.  If you're not seeing this message in a Travis build output, then something is very, very wrong...\n\n");
+  fflush(stdout);
+#endif
+
   for (i = 0; ((i < *num_platforms) && (*num_devices < devices_buffer_size)); i++) {
-    err = rc_clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, devices_buffer_size - *num_devices, &(devices[*num_devices]), &n);
+    err = rc_clGetDeviceIDs(platforms[i], device_type, devices_buffer_size - *num_devices, &(devices[*num_devices]), &n);
     if (err == CL_DEVICE_NOT_FOUND)
       printf("No GPUs found on platform #%u\n", i);
     else if (err < 0)

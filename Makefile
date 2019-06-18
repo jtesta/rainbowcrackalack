@@ -28,6 +28,10 @@ else
   VERIFY_PROG=crackalack_verify
 endif
 
+ifneq ($(TRAVIS_BUILD),)
+  COMPILE_OPTIONS += -D TRAVIS_BUILD=1
+endif
+
 
 all:	$(GEN_PROG) $(UNITTEST_PROG) $(LOOKUP_PROG) $(RTC2RT_PROG) $(GETCHAIN_PROG) $(VERIFY_PROG) $(PERFECTIFY_PROG)
 

@@ -24,7 +24,15 @@
 #include "file_lock.h"
 
 #ifdef _WIN32
+
+#if __has_include(<versionhelpers.h>)
 #include <versionhelpers.h>
+
+#define PRINT_WIN7_LOOKUP_WARNING() \
+  if (IsWindows7OrGreater() && !IsWindows8OrGreater()) { fprintf(stderr, "\n\n\n\t!! WARNING !!\n\n\nPerforming lookups on Windows 7 is known to be very unstable.  Crashes, screen flickering, and/or strange error messages may be observed.  If this happens, unfortunately, there is no solution.  However, a work-around would be to boot the machine into Linux, which does not show these problems.  Lookups on Windows 10 systems work without issue as well.\n\n\n\n"); fflush(stderr); }
+#else /* Old MinGW (i.e.: on Ubuntu 16.04 and older) doesn't have versionhelpers.h.  So we will skip the if (IsWindows...()) checks and always print the warning. */
+#define PRINT_WIN7_LOOKUP_WARNING() { fprintf(stderr, "\n\n\n\t!! WARNING !!\n\n\nPerforming lookups on Windows 7 is known to be very unstable.  Crashes, screen flickering, and/or strange error messages may be observed.  If this happens, unfortunately, there is no solution.  However, a work-around would be to boot the machine into Linux, which does not show these problems.  Lookups on Windows 10 systems work without issue as well.\n\n\n\n"); fflush(stderr); }
+#endif
 
 #define CHECK_MEMORY_SIZE() \
   /* Our code + the OpenCL library does NOT like to run on Windows systems with 4GB \
@@ -34,8 +42,6 @@
     fprintf(stderr, "\n\n\n\t!! WARNING !!\n\n\nThis system has 4GB of RAM or less.  On Windows systems, this tends to result in strange errors from the OpenCL library.  While it is safe to continue anyway, this would be the prime suspect if any problems occur.  In that case, either run on a system with more memory, or boot this machine in Linux (which has been seen to be much more forgiving in low-memory conditions).\n\n\n\n"); \
     fflush(stderr); \
   }
-#define PRINT_WIN7_LOOKUP_WARNING() \
-  if (IsWindows7OrGreater() && !IsWindows8OrGreater()) { fprintf(stderr, "\n\n\n\t!! WARNING !!\n\n\nPerforming lookups on Windows 7 is known to be very unstable.  Crashes, screen flickering, and/or strange error messages may be observed.  If this happens, unfortunately, there is no solution.  However, a work-around would be to boot the machine into Linux, which does not show these problems.  Lookups on Windows 10 systems work without issue as well.\n\n\n\n"); fflush(stderr); }
 #else
 #define CHECK_MEMORY_SIZE() /* Do nothing: Linux systems don't seem to have memory issues */
 #define PRINT_WIN7_LOOKUP_WARNING() /* Do nothing: Linux systems don't have lookup problems. */

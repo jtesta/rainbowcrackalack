@@ -8,4 +8,4 @@ before_install:
 
 script:
   - make
-  - ./make_windows.sh
+  - make clean; ./make_windows.sh

@@ -26,10 +26,13 @@ tar -Jxf intel-opencl-r5.0-63503.x86_64.tar.xz
 tar -Jxf intel-opencl-devel-r5.0-63503.x86_64.tar.xz
 tar -Jxf intel-opencl-cpu-r5.0-63503.x86_64.tar.xz
 
+chown -R root:root .
+chmod -R 0755 .
+
 pwd
 ls -alR
-cp -R etc/* /
-cp -R opt/* /
+cp -R etc/* /etc
+cp -R opt/* /opt
 
 ldconfig
 

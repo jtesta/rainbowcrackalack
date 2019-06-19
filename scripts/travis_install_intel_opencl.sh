@@ -1,18 +1,9 @@
 #!/bin/bash
 
-# This script will install the OpenCL library for Intel CPUs.  It is used by Travis builds.
-#
-# Taken from https://github.com/KhronosGroup/SyclParallelSTL/blob/master/.travis/install_intel_opencl.sh
+wget https://github.com/intel/compute-runtime/releases/download/19.23.13131/intel-gmmlib_19.2.1_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/19.23.13131/intel-igc-core_1.0.8-2084_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/19.23.13131/intel-igc-opencl_1.0.8-2084_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/19.23.13131/intel-opencl_19.23.13131_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/19.23.13131/intel-ocloc_19.23.13131_amd64.deb
 
-
-set -ev
-
-# https://software.intel.com/en-us/articles/opencl-drivers#latest_CPU_runtime
-PACKAGE_URL=http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/opencl_runtime_16.1.2_x64_rh_6.4.0.37.tgz
-PACKAGE_NAME=opencl_runtime_16.1.2_x64_rh_6.4.0.37
-
-wget -q ${PACKAGE_URL} -O /tmp/opencl_runtime.tgz
-tar -xzf /tmp/opencl_runtime.tgz -C /tmp
-sed 's/decline/accept/g' -i /tmp/${PACKAGE_NAME}/silent.cfg
-apt-get install -yq cpio
-/tmp/${PACKAGE_NAME}/install.sh -s /tmp/${PACKAGE_NAME}/silent.cfg
+dpkg -i *.deb

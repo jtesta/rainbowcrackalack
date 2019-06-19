@@ -16,6 +16,9 @@
 # The commands below install the legacy OpenCL drivers.  As of this writing
 # (June 2019), these are the latest ones that are known to work in Travis.
 
+mkdir opencl_driver
+pushd opencl_driver
+
 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/11396/SRB5.0_linux64.zip
 unzip SRB5.0_linux64.zip
 
@@ -23,7 +26,11 @@ tar -Jxf intel-opencl-r5.0-63503.x86_64.tar.xz
 tar -Jxf intel-opencl-devel-r5.0-63503.x86_64.tar.xz
 tar -Jxf intel-opencl-cpu-r5.0-63503.x86_64.tar.xz
 
+pwd
+ls -alR
 cp -R etc/* /
 cp -R opt/* /
 
 ldconfig
+
+popd

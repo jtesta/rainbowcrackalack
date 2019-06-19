@@ -8,5 +8,5 @@ before_install:
   - sudo ./scripts/travis_install_intel_opencl.sh
 
 script:
-  - make TRAVIS_BUILD=1 && echo -e "\nBuild complete.  Now running tests (this will take awhile)...\n" && travis_wait 40 make tests
+  - make TRAVIS_BUILD=1 && echo -e '\nBuild complete.  Now running tests (this will take awhile)...\n' && travis_wait 60 make tests
   - make clean; ./make_windows.sh

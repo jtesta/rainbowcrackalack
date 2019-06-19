@@ -4,7 +4,7 @@ language: c
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq gcc-mingw-w64-x86-64 ocl-icd-libopencl1 opencl-headers
+  - sudo apt-get install -qq gcc-mingw-w64-x86-64 ocl-icd-libopencl1 opencl-headers unzip
   - sudo ./scripts/travis_install_intel_opencl.sh
 
 script:

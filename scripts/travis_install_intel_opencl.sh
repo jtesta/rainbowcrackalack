@@ -16,6 +16,7 @@
 # The commands below install the legacy OpenCL drivers.  As of this writing
 # (June 2019), these are the latest ones that are known to work in Travis.
 
+echo -e "\nStarting installation of OpenCL CPU drivers...\n"
 mkdir opencl_driver
 pushd opencl_driver
 
@@ -29,11 +30,10 @@ tar -Jxf intel-opencl-cpu-r5.0-63503.x86_64.tar.xz
 chown -R root:root .
 chmod -R 0755 .
 
-pwd
-ls -alR
 cp -R etc/* /etc
 cp -R opt/* /opt
 
-ldconfig
-
 popd
+
+ldconfig
+echo -e "\nDone installing the OpenCL CPU drivers.\n"

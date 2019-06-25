@@ -42,7 +42,7 @@ $ cd aws-fpga; source sdaccel_setup.sh
 
 8.) Place the FPGA code into the example directory to compile:
 
-$ cp -R ~/rainbowcrackalack/fpga $SDACCEL_DIR/examples/xilinx/getting_started/host/rainbowcrackalack
+$ cp -R ~/rainbowcrackalack/FPGA $SDACCEL_DIR/examples/xilinx/getting_started/host/rainbowcrackalack
 
 
 9.) Begin compilation:

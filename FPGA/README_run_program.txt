@@ -37,7 +37,7 @@ $ sudo -i
 
 6.) Place Rainbow Crackalack FPGA directory in correct location:
 
-# cp -R ~/rainbowcrackalack/fpga ~/aws-fpga/SDAccel/examples/xilinx/getting_started/host/rainbowcrackalack
+# cp -R ~/rainbowcrackalack/FPGA ~/aws-fpga/SDAccel/examples/xilinx/getting_started/host/rainbowcrackalack
 
 
 7.) Download *.awsxclbin file:

@@ -5,6 +5,7 @@
 *.pyc
 rcracki.precalc.*
 *.rt
+*.rt.log
 crackalack_gen
 crackalack_lookup
 crackalack_rtc2rt

@@ -1668,6 +1668,10 @@ int main(int ac, char **av) {
 	if (strstr(pot_file_data, line) != NULL)
 	  previously_cracked++;
 	else {
+          /* If we're dealing with CRLF line endings, cut off the trailing CR. */
+          if (line[strlen(line) - 1] == '\r')
+            line[strlen(line) - 1] = '\0';
+
 	  hashes[num_hashes] = strdup(line);
 	  if (hashes[num_hashes] == NULL) {
 	    fprintf(stderr, "Error while allocating buffer for hashes.\n");

@@ -152,7 +152,7 @@ size_t user_provided_gws = 0;
 
 
 void print_usage_and_exit(char *prog_name, int exit_code) {
-  fprintf(stderr, "Usage: %s hash_algorithm charset_name plaintext_min_length plaintext_max_length table_index chain_length number_of_chains [part_index | -bench] [-gws GWS]\n\nExample: %s ntlm ascii-32-95 9 9 0 1350000 67108864 0\n\n", prog_name, prog_name);
+  fprintf(stderr, "Usage: %s hash_algorithm charset_name plaintext_min_length plaintext_max_length table_index chain_length number_of_chains [part_index | -bench] [-gws GWS]\n\nExample: %s ntlm ascii-32-95 9 9 0 803000 67108864 0\n\n", prog_name, prog_name);
   exit(exit_code);
 }
 

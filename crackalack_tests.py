@@ -63,12 +63,12 @@ GEN_TESTS = {
     '3203f5596449254dc8f0639a8bbf54555c911aebc69d018b1e45cf0e8be27086':
         ['ntlm', 'ascii-32-95', '8', '8', '0', '422000', '10240', '0'],
 
-    'c3e6a35810e2a70bac583cd9767d6181aa026fbb53325f230aa48b863c274b06':
-        ['ntlm', 'ascii-32-95', '9', '9', '0', '10240', '10240', '666'],
+#    'c3e6a35810e2a70bac583cd9767d6181aa026fbb53325f230aa48b863c274b06':
+#        ['ntlm', 'ascii-32-95', '9', '9', '0', '10240', '10240', '666'],
 
     # Optimized NTLM9 kernel test.
-#    'd80a48c8216ed71d50d35da735a51d8c32c1c779296142fc82582f8ff643d153':
-#        ['ntlm', 'ascii-32-95', '9', '9', '0', '1000000', '10240', '0'],
+    '62dea1a6003a281b3b479a59d4547be8f4e565b2f2ec0ba549a8f0529ed5c141':
+        ['ntlm', 'ascii-32-95', '9', '9', '0', '803000', '10240', '0'],
 }
 
 # The 'table' key is the filename to use to make a fake rainbow table (as the
@@ -525,7 +525,7 @@ if __name__ == '__main__':
 
     if (len(sys.argv) == 2) and (sys.argv[1] == '--verbose'):
         VERBOSE = True
-    elif (len(sys.argv) == 3) and (sys.argv[1] in ['precomp', 'lookup', 'generate']):
+    elif (len(sys.argv) == 2) and (sys.argv[1] in ['precomp', 'lookup', 'generate']):
         tests_to_run = sys.argv[1]
         VERBOSE = True
     elif (len(sys.argv) == 2) and (sys.argv[1] == '--help'):

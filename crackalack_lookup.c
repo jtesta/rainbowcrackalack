@@ -1730,6 +1730,12 @@ int main(int ac, char **av) {
     }
   }
 
+  /* Issue a warning if more than 5,000 hashes were provided, as rainbow tables may
+   * start to become not as efficient as brute-force. */
+  if (num_hashes > 5000) {
+    printf("\n\n\n\t!! WARNING !!\n\nA large group of hashes was provided (%u).  In general, rainbow tables are only effective to use for small numbers of hashes because there is a pre-computation step that must be done on *each hash*; eventually this pre-computation cost becomes high enough that brute-force would be a better strategy.  The point at which this happens depends on your specific GPU hardware.\n\nFor example, suppose the pre-computation step takes 2.8 seconds per hash, and brute-forcing takes 16 hours (57,600 seconds).  Not counting search time nor false alarm checking, the point at which brute-forcing becomes more efficient than rainbow tables is: 57,600 / 2.8 = ~20,571 hashes.  Trying to crack more than this number of hashes is clearly less effective than brute-force.\n\nPay attention to the pre-computation times below, and compare with the reported estimate that hashcat gives after a few minutes for brute-forcing 8-character NTLM (hint: ./hashcat -m 1000 -a 3 -w 3 -O ffffffffffffffffffffffffffffffff ?a?a?a?a?a?a?a?a).\n\n\n\n", num_hashes);  fflush(stdout);
+  }
+
   args = calloc(num_devices, sizeof(thread_args));
   if (args == NULL) {
     fprintf(stderr, "Error while creating thread arg array.\n");

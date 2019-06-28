@@ -51,6 +51,7 @@ struct h2i_test lm_h2i_tests[] = {
 struct h2i_test ntlm_h2i_tests[] = {
   /*{"", CHARSET_ASCII_32_65_123_4_LEN, 1, 8, 0, 0,       0},*/
   {"123456789abcdef0", CHARSET_ASCII_32_95_LEN, 8, 8, 0, 666,  1438903040496756UL},
+  {"deadbeefdeadbeef", CHARSET_ASCII_32_95_LEN, 9, 9, 0, 1337, 258702331091945490UL},
 };
 
 

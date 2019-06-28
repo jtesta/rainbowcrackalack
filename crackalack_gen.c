@@ -224,13 +224,13 @@ void *host_thread(void *ptr) {
     if (args->gpu.device_number == 0) { /* Only the first thread prints this. */
       printf("Note: optimized NTLM8 kernel will be used.\n"); fflush(stdout);
     }
-  } /*else if (is_ntlm9(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
+  } else if (is_ntlm9(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
     kernel_path = CRACKALACK_NTLM9_KERNEL_PATH;
     kernel_name = "crackalack_ntlm9";
-    if (args->gpu.device_number == 0) { * Only the first thread prints this. *
+    if (args->gpu.device_number == 0) { /* Only the first thread prints this. */
       printf("Note: optimized NTLM9 kernel will be used.\n"); fflush(stdout);
     }
-  }*/
+  }
 
   /* Get the number of compute units in this device. */
   get_device_uint(gpu->device, CL_DEVICE_MAX_COMPUTE_UNITS, &(gpu->num_work_units));

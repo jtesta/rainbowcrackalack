@@ -42,8 +42,8 @@ all:	$(GEN_PROG) $(UNITTEST_PROG) $(LOOKUP_PROG) $(RTC2RT_PROG) $(GETCHAIN_PROG)
 $(GEN_PROG):	charset.o clock.o cpu_rt_functions.o crackalack_gen.o file_lock.o gws.o hash_validate.o misc.o opencl_setup.o rtc_decompress.o verify.o
 	$(CC) $(COMPILE_OPTIONS) -o $(GEN_PROG) charset.o clock.o cpu_rt_functions.o crackalack_gen.o file_lock.o gws.o hash_validate.o misc.o opencl_setup.o rtc_decompress.o verify.o $(LINK_OPTIONS)
 
-$(UNITTEST_PROG):	charset.o cpu_rt_functions.o crackalack_unit_tests.o hash_validate.o misc.o opencl_setup.o  test_chain.o test_hash.o test_hash_to_index.o test_index_to_plaintext.o test_shared.o file_lock.o
-	$(CC) $(COMPILE_OPTIONS) -o $(UNITTEST_PROG) charset.o cpu_rt_functions.o crackalack_unit_tests.o hash_validate.o misc.o opencl_setup.o test_chain.o test_hash.o test_hash_to_index.o test_index_to_plaintext.o test_shared.o file_lock.o $(LINK_OPTIONS)
+$(UNITTEST_PROG):	charset.o cpu_rt_functions.o crackalack_unit_tests.o hash_validate.o misc.o opencl_setup.o  test_chain.o test_chain_ntlm9.o test_hash.o test_hash_ntlm9.o test_hash_to_index.o test_hash_to_index_ntlm9.o test_index_to_plaintext.o test_index_to_plaintext_ntlm9.o test_shared.o file_lock.o
+	$(CC) $(COMPILE_OPTIONS) -o $(UNITTEST_PROG) charset.o cpu_rt_functions.o crackalack_unit_tests.o hash_validate.o misc.o opencl_setup.o test_chain.o test_chain_ntlm9.o test_hash.o test_hash_ntlm9.o test_hash_to_index.o test_hash_to_index_ntlm9.o test_index_to_plaintext.o test_index_to_plaintext_ntlm9.o test_shared.o file_lock.o $(LINK_OPTIONS)
 
 $(GETCHAIN_PROG):	get_chain.o
 	$(CC) $(COMPILE_OPTIONS) -o $(GETCHAIN_PROG) get_chain.o $(LINK_OPTIONS)

@@ -25,10 +25,13 @@
 #include "opencl_setup.h"
 #include "shared.h"
 #include "test_chain.h"
-#include "test_des.h"
+#include "test_chain_ntlm9.h"
 #include "test_hash.h"
+#include "test_hash_ntlm9.h"
 #include "test_hash_to_index.h"
+#include "test_hash_to_index_ntlm9.h"
 #include "test_index_to_plaintext.h"
+#include "test_index_to_plaintext_ntlm9.h"
 #include "version.h"
 
 
@@ -96,9 +99,11 @@ int main(int ac, char **av) {
   CLRELEASEPROGRAM(program);
   */
 
+
   /* index_to_plaintext() tests. */
+  hash_type = HASH_NTLM;
   load_kernel(context, num_devices, devices, "test_index_to_plaintext.cl", "test_index_to_plaintext", &program, &kernel, hash_type);
-  printf("Running index_to_plaintext() tests... "); fflush(stdout);
+  printf("Running NTLM index_to_plaintext() tests... "); fflush(stdout);
   if (!test_index_to_plaintext(devices[0], context, kernel)) {
     ret = -1;
     all_tests_passed = 0;
@@ -110,7 +115,22 @@ int main(int ac, char **av) {
   CLRELEASEPROGRAM(program);
 
 
+  /* index_to_plaintext_ntlm9() tests. */
+  load_kernel(context, num_devices, devices, "test_index_to_plaintext_ntlm9.cl", "test_index_to_plaintext_ntlm9", &program, &kernel, hash_type);
+  printf("Running NTLM9 index_to_plaintext_ntlm9() tests... "); fflush(stdout);
+  if (!test_index_to_plaintext_ntlm9(devices[0], context, kernel)) {
+    ret = -1;
+    all_tests_passed = 0;
+    PRINT_FAILED();
+  } else
+    PRINT_PASSED();
+
+  CLRELEASEKERNEL(kernel);
+  CLRELEASEPROGRAM(program);
+
+
   /* Hash tests. */
+  /*
   printf("Running LM hash tests... "); fflush(stdout);
   hash_type = HASH_LM;
   load_kernel(context, num_devices, devices, "test_hash.cl", "test_hash", &program, &kernel, hash_type);
@@ -123,6 +143,7 @@ int main(int ac, char **av) {
 
   CLRELEASEKERNEL(kernel);
   CLRELEASEPROGRAM(program);
+  */
 
   
   printf("Running NTLM hash tests... "); fflush(stdout);
@@ -137,9 +158,23 @@ int main(int ac, char **av) {
 
   CLRELEASEKERNEL(kernel);
   CLRELEASEPROGRAM(program);
-  
+
+
+  printf("Running NTLM9 hash tests... "); fflush(stdout);
+  load_kernel(context, num_devices, devices, "test_hash_ntlm9.cl", "test_hash_ntlm9", &program, &kernel, hash_type);
+  if (!test_hash_ntlm9(devices[0], context, kernel)) {
+    ret = -1;
+    all_tests_passed = 0;
+    PRINT_FAILED();
+  } else
+    PRINT_PASSED();
+
+  CLRELEASEKERNEL(kernel);
+  CLRELEASEPROGRAM(program);
+
 
   /* hash_to_index() tests. */
+  /*
   printf("Running LM hash_to_index() tests... "); fflush(stdout);
   hash_type = HASH_LM;
   load_kernel(context, num_devices, devices, "test_hash_to_index.cl", "test_hash_to_index", &program, &kernel, hash_type);
@@ -152,7 +187,7 @@ int main(int ac, char **av) {
 
   CLRELEASEKERNEL(kernel);
   CLRELEASEPROGRAM(program);
-
+  */
 
   printf("Running NTLM hash_to_index() tests... "); fflush(stdout);
   hash_type = HASH_NTLM;
@@ -168,7 +203,21 @@ int main(int ac, char **av) {
   CLRELEASEPROGRAM(program);
 
 
+  printf("Running NTLM9 hash_to_index() tests... "); fflush(stdout);
+  load_kernel(context, num_devices, devices, "test_hash_to_index_ntlm9.cl", "test_hash_to_index_ntlm9", &program, &kernel, hash_type);
+  if (!test_h2i_ntlm9(devices[0], context, kernel)) {
+    ret = -1;
+    all_tests_passed = 0;
+    PRINT_FAILED();
+  } else
+    PRINT_PASSED();
+
+  CLRELEASEKERNEL(kernel);
+  CLRELEASEPROGRAM(program);
+
+
   /* Chain tests. */
+  /*
   printf("Running LM chain tests... "); fflush(stdout);
   hash_type = HASH_LM;
   load_kernel(context, num_devices, devices, "test_chain.cl", "test_chain", &program, &kernel, hash_type);
@@ -181,11 +230,28 @@ int main(int ac, char **av) {
 
   CLRELEASEKERNEL(kernel);
   CLRELEASEPROGRAM(program);
+  */
+
 
   printf("Running NTLM chain tests... "); fflush(stdout);
   hash_type = HASH_NTLM;
   load_kernel(context, num_devices, devices, "test_chain.cl", "test_chain", &program, &kernel, hash_type);
   if (!test_chain(devices[0], context, kernel, hash_type)) {
+    ret = -1;
+    all_tests_passed = 0;
+    PRINT_FAILED();
+  } else
+    PRINT_PASSED();
+
+  CLRELEASEKERNEL(kernel);
+  CLRELEASEPROGRAM(program);
+
+
+  printf("Running NTLM9 chain tests... "); fflush(stdout);
+  hash_type = HASH_NTLM;
+  /*load_kernel(context, num_devices, devices, "test_chain_ntlm9.cl", "test_chain_ntlm9", &program, &kernel, hash_type);*/
+  load_kernel(context, num_devices, devices, "crackalack_ntlm9.cl", "crackalack_ntlm9", &program, &kernel, hash_type);
+  if (!test_chain_ntlm9(devices[0], context, kernel)) {
     ret = -1;
     all_tests_passed = 0;
     PRINT_FAILED();

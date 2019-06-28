@@ -230,9 +230,16 @@ int verify_rainbowtable_file(char *filename, unsigned int table_type, unsigned i
     goto err;
   }
 
-  /* By default, check 100 chains. */
-  if (num_chains_to_verify < 0)
-    num_chains_to_verify = 100;
+  /* If the number of chains to verify wasn't set by the user... */
+  if (num_chains_to_verify < 0) {
+    charset = validate_charset(rt_params.charset_name);
+
+    /* Set it to 50 for NTLM9 tables. */
+    if ((charset != NULL) && is_ntlm9(rt_params.hash_type, charset, rt_params.plaintext_len_min, rt_params.plaintext_len_max, rt_params.reduction_offset, rt_params.chain_len))
+      num_chains_to_verify = 50;
+    else /* Set it to 100 for all other tables. */
+      num_chains_to_verify = 100;
+  }
 
   if (num_chains_to_verify > 0) {
     uint64_t start = 0, computed_end = 0, actual_end = 0, random_chain = 0;

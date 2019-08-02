@@ -9,6 +9,7 @@ ifneq ($(WINDOWS_BUILD),)
   COMPILE_OPTIONS += -I$(CL_INCLUDE)
   LINK_OPTIONS += -static -lbcrypt
 
+  ENUMERATE_PROG=enumerate_chain.exe
   GEN_PROG=crackalack_gen.exe
   GETCHAIN_PROG=get_chain.exe
   LOOKUP_PROG=crackalack_lookup.exe
@@ -19,6 +20,7 @@ ifneq ($(WINDOWS_BUILD),)
 else
   LINK_OPTIONS += -ldl
 
+  ENUMERATE_PROG=enumerate_chain
   GEN_PROG=crackalack_gen
   GETCHAIN_PROG=get_chain
   LOOKUP_PROG=crackalack_lookup
@@ -33,7 +35,7 @@ ifneq ($(TRAVIS_BUILD),)
 endif
 
 
-all:	$(GEN_PROG) $(UNITTEST_PROG) $(LOOKUP_PROG) $(RTC2RT_PROG) $(GETCHAIN_PROG) $(VERIFY_PROG) $(PERFECTIFY_PROG)
+all:	$(GEN_PROG) $(UNITTEST_PROG) $(LOOKUP_PROG) $(RTC2RT_PROG) $(GETCHAIN_PROG) $(VERIFY_PROG) $(PERFECTIFY_PROG) $(ENUMERATE_PROG)
 
 
 %.o: %.c
@@ -59,6 +61,9 @@ $(LOOKUP_PROG): clock.o cpu_rt_functions.o charset.o file_lock.o hash_validate.o
 
 $(PERFECTIFY_PROG):	clock.o perfectify.o
 	$(CC) $(COMPILE_OPTIONS) -o $(PERFECTIFY_PROG) clock.o perfectify.o
+
+$(ENUMERATE_PROG):	cpu_rt_functions.o enumerate_chain.o test_shared.o
+	$(CC) $(COMPILE_OPTIONS) -o $(ENUMERATE_PROG) cpu_rt_functions.o enumerate_chain.o test_shared.o
 
 
 clean:

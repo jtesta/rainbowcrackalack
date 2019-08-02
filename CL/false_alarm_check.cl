@@ -39,7 +39,7 @@ __kernel void false_alarm_check(
   copy_plaintext_space_up_to_index(plaintext_space_up_to_index, g_plaintext_space_up_to_index);
 
   unsigned long index = g_start_indices[index_pos], previous_index = 0;
-  unsigned long hash_base_index = g_hash_base_indices[index_pos];
+  unsigned long hash_base_index = g_hash_base_indices[index_pos] % plaintext_space_total;
   unsigned int endpoint = g_start_index_positions[index_pos];
 
 
@@ -50,7 +50,7 @@ __kernel void false_alarm_check(
     previous_index = index;
     index = hash_to_index(hash, hash_len, reduction_offset, plaintext_space_total, pos);
 
-    if (index == ((hash_base_index + pos) % plaintext_space_total)) {
+    if ((index == (hash_base_index + pos)) || (index == (hash_base_index + pos - plaintext_space_total))) {
       g_plaintext_indices[index_pos] = previous_index;
       return;
     }

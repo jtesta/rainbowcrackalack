@@ -24,7 +24,7 @@ __kernel void false_alarm_check_ntlm8(
 
   unsigned char plaintext[8];
   unsigned long index = g_start_indices[index_pos], previous_index = 0;
-  unsigned long hash_base_index = g_hash_base_indices[index_pos];
+  unsigned long hash_base_index = g_hash_base_indices[index_pos] % 6634204312890625UL;
   unsigned int endpoint = g_start_index_positions[index_pos];
 
   for (unsigned int pos = 0; pos < endpoint + 1; pos++) {
@@ -33,7 +33,7 @@ __kernel void false_alarm_check_ntlm8(
     previous_index = index;
     index = hash_to_index_ntlm8(hash_ntlm8(plaintext), pos);
 
-    if (index == ((hash_base_index + pos) % 6634204312890625UL)) {
+    if ((index == (hash_base_index + pos)) || (index == (hash_base_index + pos - 6634204312890625UL))) {
       g_plaintext_indices[index_pos] = previous_index;
       return;
     }

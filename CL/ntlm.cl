@@ -128,14 +128,14 @@ inline void ntlm_hash(unsigned char *plaintext, unsigned int plaintext_len, unsi
    * is set correctly, yet at the same time, it isn't.  The code below basically
    * sets plaintext_len to the same value that it was; without this, the wrong
    * hash is somehow calculated. */
-  plaintext[plaintext_len] = 0;
+  /*plaintext[plaintext_len] = 0;
 
   int my_len = 0;
   for (; my_len < MAX_PLAINTEXT_LEN; my_len++)
     if (plaintext[my_len] == 0)
       break;
 
-  plaintext_len = my_len;
+  plaintext_len = my_len;*/
   /***********************************************************************************/
 #endif
 

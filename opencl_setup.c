@@ -294,12 +294,13 @@ void load_kernel(cl_context context, cl_uint num_devices, const cl_device_id *de
   strncat(build_options, " -DUSE_DES_BITSLICE=1", sizeof(build_options) - 1);
 #endif
 
-  /* If the first device is AMD, we will assume that its the ROCm driver.  This isn't
-   * correct all of the time (i.e.: if Catalyst/Crimson drivers are in use), but
-   * until we can differentiate between the drivers, this is what we'll use... */
   get_device_str(devices[0], CL_DEVICE_VENDOR, device_vendor, sizeof(device_vendor) - 1);
+
+  /* If we're not on Windows, and the vendor is AMD, assume its the ROCm driver. */
+#ifndef _WIN32
   if (strcmp(device_vendor, "Advanced Micro Devices, Inc.") == 0)
     strncat(build_options, " -DAMD_ROCM=1", sizeof(build_options) - 1);
+#endif
 
   /*printf("Building program with options: %s\n", build_options);*/
   if (rc_clBuildProgram(*program, num_devices, devices, build_options, NULL, NULL) < 0) {

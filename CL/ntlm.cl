@@ -16,6 +16,7 @@
  * 3. http://en.wikipedia.org/wiki/MD4
  */
 
+#include "shared.h"
 #include "string.cl"
 
 #undef MD4_LUT3 /* No good for this format, just here for reference */

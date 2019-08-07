@@ -296,8 +296,12 @@ void load_kernel(cl_context context, cl_uint num_devices, const cl_device_id *de
 
   get_device_str(devices[0], CL_DEVICE_VENDOR, device_vendor, sizeof(device_vendor) - 1);
 
+#ifdef _WIN32
+  /* If we're on Windows, and the vendor is AMD, assume its the Catalyst driver. */
+  if (strcmp(device_vendor, "Advanced Micro Devices, Inc.") == 0)
+    strncat(build_options, " -DAMD_CATALYST=1", sizeof(build_options) - 1);
+#else
   /* If we're not on Windows, and the vendor is AMD, assume its the ROCm driver. */
-#ifndef _WIN32
   if (strcmp(device_vendor, "Advanced Micro Devices, Inc.") == 0)
     strncat(build_options, " -DAMD_ROCM=1", sizeof(build_options) - 1);
 #endif

@@ -122,20 +122,17 @@ inline void ntlm_hash(unsigned char *plaintext, unsigned int plaintext_len, unsi
   unsigned int output[4];
 
 
-#ifdef AMD_ROCM
-  /* Below is a workaround for an EXTREMELY confusing bug only observed while using the
-   * AMD ROCm driver (I'm going to go ahead and blame the driver...).  plaintext_len
-   * is set correctly, yet at the same time, it isn't.  The code below basically
-   * sets plaintext_len to the same value that it was; without this, the wrong
-   * hash is somehow calculated. */
-  /*plaintext[plaintext_len] = 0;
+#ifdef AMD_CATALYST
+  /* Below is a workaround for a bug only on the Windows AMD Catalyst driver.  It used
+   * to also affect the Linux ROCm driver, but no longer. */
+  plaintext[plaintext_len] = 0;
 
   int my_len = 0;
   for (; my_len < MAX_PLAINTEXT_LEN; my_len++)
     if (plaintext[my_len] == 0)
       break;
 
-  plaintext_len = my_len;*/
+  plaintext_len = my_len;
   /***********************************************************************************/
 #endif
 

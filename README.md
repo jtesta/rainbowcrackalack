@@ -39,7 +39,7 @@ The arguments are designed to be comparable to those of the original (and now cl
 |9           |The minimum plaintext character length.|
 |9           |The maximum plaintext character length.|
 |0           |The reduction index.  Not used under standard conditions.|
-|1350000     |The chain length for a single rainbow chain.|
+|803000      |The chain length for a single rainbow chain.|
 |67108864    |The number of chains per table (= 64M)|
 |0 |The table part index.  Keep all other args the same, and increment this field to generate a single set of tables.|
 

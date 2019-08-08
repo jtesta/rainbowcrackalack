@@ -28,7 +28,7 @@ Currently, NTLM 8-character tables are available for [free download via Bittorre
 
 The following command shows how to generate a standard 9-character NTLM table:
 
-    # ./crackalack_gen ntlm ascii-32-95 9 9 0 1350000 67108864 0
+    # ./crackalack_gen ntlm ascii-32-95 9 9 0 803000 67108864 0
 
 The arguments are designed to be comparable to those of the original (and now closed-source) rainbow crack tools.  In order, they mean:
 

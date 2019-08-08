@@ -1,4 +1,4 @@
-# Rainbow Crackalack
+# Rainbow Crackalack v1.2-dev
 
 Author: [Joe Testa](https://www.positronsecurity.com/company/) ([@therealjoetesta](https://twitter.com/therealjoetesta))
 

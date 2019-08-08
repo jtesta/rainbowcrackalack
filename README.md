@@ -12,10 +12,6 @@ For more information, see the project website: [https://www.rainbowcrackalack.co
 
 Want to work on this project and get paid for your work?  See the [project page](https://www.rainbowcrackalack.com/#bounty) for more details on what bounties are currently being offered!
 
-## Kickstarter Campaign
-
-We are currently running a [Kickstarter campaign](https://www.kickstarter.com/projects/jtesta/ntlm-9-character-rainbow-tables) to raise funds for GPU equipment so that we can generate NTLM 9-character tables targeting 50% efficiency.  Both individual & corporate sponsorship tiers are available.  [Please lend your support soon](https://www.kickstarter.com/projects/jtesta/ntlm-9-character-rainbow-tables), as the campaign window is limited!
-
 ## Volunteering
 
 The project for generating NTLM 9-character tables is now underway!  If you create 5 tables for us, your name will be listed on the [project website](https://www.rainbowcrackalack.com/) as a project supporter.  If you create 200 tables, we will mail you a free magnetic hard drive containing NTLM 9-character tables with 50% efficiency.  Ships world-wide!
@@ -62,6 +58,7 @@ However, other modern equipment can work just fine, so you don't necessarily nee
 ## Change Log
 
 - v1.0: June 11, 2019: Initial revision.
+- v1.1: August 8, 2019: massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
 
 ## Windows Build
 

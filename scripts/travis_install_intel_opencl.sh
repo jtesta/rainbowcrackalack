@@ -17,6 +17,11 @@
 # (June 2019), these are the latest ones that are known to work in Travis.
 
 echo -e "\nStarting installation of OpenCL CPU drivers...\n"
+
+echo -e "\n/proc/cpuinfo:\n"
+cat /proc/cpuinfo
+echo -e "\n\n"
+
 mkdir opencl_driver
 pushd opencl_driver
 
@@ -36,4 +41,9 @@ cp -R opt/* /opt
 popd
 
 ldconfig
+
+echo -e "\nRunning clinfo:\n"
+clinfo
+echo -e "\n\n"
+
 echo -e "\nDone installing the OpenCL CPU drivers.\n"

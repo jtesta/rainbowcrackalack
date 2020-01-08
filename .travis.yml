@@ -1,12 +1,13 @@
 sudo: required
-dist: xenial
+dist: bionic
 language: c
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq gcc-mingw-w64-x86-64 ocl-icd-libopencl1 opencl-headers unzip
-  - sudo ./scripts/travis_install_intel_opencl.sh
+  - sudo apt-get install -qq gcc-mingw-w64-x86-64 ocl-icd-libopencl1 opencl-headers unzip clinfo
+#  - sudo ./scripts/travis_install_intel_opencl.sh
 
 script:
-  - make TRAVIS_BUILD=1 && ./crackalack_unit_tests
+#  - make TRAVIS_BUILD=1 && ./crackalack_unit_tests
+  - make
   - make clean; ./make_windows.sh

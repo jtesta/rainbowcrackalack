@@ -62,7 +62,7 @@ int main(int ac, char **av) {
 
   context = rc_clCreateContext(NULL, num_devices, devices, context_callback, NULL, &err);
   if (err < 0) {
-    fprintf(stderr, "Failed to create context.\n");
+    fprintf(stderr, "Failed to create context: %d\n", err);
     exit(-1);
   }
 

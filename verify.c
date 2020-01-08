@@ -31,6 +31,10 @@
 #include "verify.h"
 
 
+void _print_chain_error(uint64_t random_chain, uint64_t start, uint64_t actual_end, uint64_t computed_end) {
+  fprintf(stderr, "Error: chain #%"PRIu64" is invalid!\n  Start index:        %"PRIu64"\n  Actual chain end:   %"PRIu64"\n  Computed chain end: %"PRIu64"\n\n", random_chain, start, actual_end, computed_end);
+}
+
 /* Verifies a rainbow table already loaded from disk. */
 int verify_rainbowtable(uint64_t *rainbowtable, unsigned int num_chains, unsigned int table_type, uint64_t expected_start, uint64_t plaintext_space_total, unsigned int *error_chain_num) {
   unsigned int i = 0;
@@ -188,6 +192,49 @@ int verify_rainbowtable_file(char *filename, unsigned int table_type, unsigned i
     return 0;
   }
 
+  /* Compressed tables cannot be quickly checked, as they currently require the entire table to be loaded into memory. */
+  if (is_compressed && VERIFY_TABLE_TYPE_QUICK) {
+    rc_fclose(f);
+    fprintf(stderr, "Error: quick verification of compressed tables is not supported.\n");
+    return 0;
+  }
+
+  /* Handle the case of a quick table verification up-front. */
+  if (table_type == VERIFY_TABLE_TYPE_QUICK) {
+    uint64_t random_chain = 0, start = 0, actual_end = 0, computed_end = 0;
+    char plaintext[MAX_PLAINTEXT_LEN] = {0};
+    unsigned char hash[MAX_HASH_OUTPUT_LEN] = {0};
+    unsigned int i = 0, plaintext_len = sizeof(plaintext), hash_len = sizeof(hash);
+
+
+    /* The actual number of chains in the file. */
+    actual_num_chains = file_size / CHAIN_SIZE;
+
+    /* Only verify 5 chains. */
+    for (i = 0; i < 5; i++) {
+      random_chain = get_random(actual_num_chains);
+      rc_fseek(f, random_chain * (sizeof(uint64_t) * 2), RCSEEK_SET); /* Jump to random chain. */
+
+      /* Read start & end point from random chain in file. */
+      rc_fread(&start, sizeof(uint64_t), 1, f);
+      rc_fread(&actual_end, sizeof(uint64_t), 1, f);
+
+      /* Compute the expected end point. */
+      computed_end = generate_rainbow_chain(rt_params.hash_type, charset, strlen(charset), rt_params.plaintext_len_min, rt_params.plaintext_len_max, rt_params.reduction_offset, rt_params.chain_len, start, plaintext_space_up_to_index, plaintext_space_total, plaintext, &plaintext_len, hash, &hash_len);
+
+      /* Ensure that the end point in the file matches what we just computed. */
+      if (actual_end != computed_end) {
+        _print_chain_error(random_chain, start, actual_end, computed_end);
+        rc_fclose(f);
+        return 0;
+      }
+    }
+
+    rc_fclose(f);
+    return 1;
+  }
+
+  /* Load & decompress RTC files. */
   if (is_compressed) {
     int ret = -1;
 
@@ -202,7 +249,7 @@ int verify_rainbowtable_file(char *filename, unsigned int table_type, unsigned i
     if (table_type == VERIFY_TABLE_TYPE_GENERATED)
       printf("\n!! WARNING: table is compressed, yet is supposedly unsorted!  Only sorted tables should be compressed...\n\n");
 
-  } else {
+  } else { /* Simply load uncompressed RT files. */
     actual_num_chains = file_size / CHAIN_SIZE;
     rainbow_table = calloc(actual_num_chains * 2, sizeof(uint64_t));
     if (rainbow_table == NULL) {
@@ -259,7 +306,7 @@ int verify_rainbowtable_file(char *filename, unsigned int table_type, unsigned i
 	computed_end = generate_rainbow_chain(rt_params.hash_type, charset, strlen(charset), rt_params.plaintext_len_min, rt_params.plaintext_len_max, rt_params.reduction_offset, rt_params.chain_len, start, plaintext_space_up_to_index, plaintext_space_total, plaintext, &plaintext_len, hash, &hash_len);
 
 	if (actual_end != computed_end) {
-	  fprintf(stderr, "Error: chain #%"PRIu64" is invalid!\n  Start index:        %"PRIu64"\n  Actual chain end:   %"PRIu64"\n  Computed chain end: %"PRIu64"\n\n", random_chain, start, actual_end, computed_end);
+          _print_chain_error(random_chain, start, actual_end, computed_end);
 	  goto err;
 	}
       }

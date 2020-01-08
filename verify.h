@@ -4,7 +4,8 @@
 #include <inttypes.h>
 
 
-#define VERIFY_TABLE_TYPE_LOOKUP 1
+#define VERIFY_TABLE_TYPE_LOOKUP 2
+#define VERIFY_TABLE_TYPE_QUICK 1
 #define VERIFY_TABLE_TYPE_GENERATED 0
 
 #define VERIFY_TABLE_IS_COMPLETE 1
@@ -13,6 +14,7 @@
 #define VERIFY_TRUNCATE_ON_ERROR 1
 #define VERIFY_DONT_TRUNCATE 0
 
+void _print_chain_error(uint64_t random_chain, uint64_t start, uint64_t actual_end, uint64_t computed_end);
 
 int verify_rainbowtable(uint64_t *rainbowtable, unsigned int num_chains, unsigned int table_type, uint64_t expected_start, uint64_t plaintext_space_total, unsigned int *error_chain_num);
 

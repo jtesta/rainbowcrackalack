@@ -1,6 +1,6 @@
 /*
  * Rainbow Crackalack: crackalack_lookup.c
- * Copyright (C) 2018-2019  Joe Testa <jtesta@positronsecurity.com>
+ * Copyright (C) 2018-2020  Joe Testa <jtesta@positronsecurity.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms version 3 of the GNU General Public License as
@@ -1672,6 +1672,9 @@ int main(int ac, char **av) {
           if (line[strlen(line) - 1] == '\r')
             line[strlen(line) - 1] = '\0';
 
+          /* Ensure that hash is lowercase. */
+          str_to_lowercase(line);
+
 	  hashes[num_hashes] = strdup(line);
 	  if (hashes[num_hashes] == NULL) {
 	    fprintf(stderr, "Error while allocating buffer for hashes.\n");
@@ -1699,6 +1702,9 @@ int main(int ac, char **av) {
       fprintf(stderr, "Error while allocating buffer for hashes.\n");
       goto err;
     }
+
+    /* Ensure that hash is lowercase. */
+    str_to_lowercase(single_hash);
     hashes[0] = strdup(single_hash);
     num_hashes = 1;
   }

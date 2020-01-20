@@ -80,6 +80,7 @@ void parse_rt_params(rt_parameters *rt_params, char *rt_filename);
 void *recalloc(void *ptr, size_t new_size, size_t old_size);
 size_t rt_log(rc_file f, const char *fmt, ...);
 int str_ends_with(const char *str, const char *suffix);
+void str_to_lowercase(char *s);
 
 #ifdef _WIN32
 void windows_print_error(char *func_name);

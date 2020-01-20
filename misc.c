@@ -1,6 +1,6 @@
 /*
  * Rainbow Crackalack: misc.c
- * Copyright (C) 2018-2019  Joe Testa <jtesta@positronsecurity.com>
+ * Copyright (C) 2018-2020  Joe Testa <jtesta@positronsecurity.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms version 3 of the GNU General Public License as
@@ -25,6 +25,7 @@
 #endif
 
 #include <CL/cl.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 
@@ -344,6 +345,15 @@ int str_ends_with(const char *str, const char *suffix) {
     return 0;
 
   return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
+}
+
+
+/* Converts a string to lowercase. */
+void str_to_lowercase(char *s) {
+  unsigned int i = 0;
+
+  for (; i < strlen(s); i++)
+    s[i] = tolower(s[i]);
 }
 
 

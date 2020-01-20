@@ -59,6 +59,7 @@ However, other modern equipment can work just fine, so you don't necessarily nee
 
 - v1.0: June 11, 2019: Initial revision.
 - v1.1: August 8, 2019: massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
+- v1.2: ???: `crackalack_lookup` now cracks uppercase hashes.
 
 ## Windows Build
 

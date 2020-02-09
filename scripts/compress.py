@@ -52,11 +52,9 @@ def compress_rt(relative_temp_dir):
   rtc_path = None
   for i in range(0, 3):
     args = [RT2RTC, relative_temp_dir, '-s', str(start_bits), '-e', str(end_bits)]
-    #print("args: %s" % " ".join(args))
 
     proc = subprocess.run(args, stdout=subprocess.PIPE)
     output = proc.stdout.decode('ascii')
-    #print(output)
 
     # Loop through all the lines of the output of the rt2rtc program.  Parse out the
     # start and end bit values.
@@ -100,12 +98,19 @@ def move_rtc(rtc_filename, result_dir):
   return rtc_dst_path
 
 
-if len(sys.argv) == 1:
-  print("\nThis program runs rainbowcrack's rt2rtc program on a directory of RT files.\n\nBecause rt2rtc does not easily handle the case when two RT files produce the same RTC filename, and because it is not clear if it automatically uses the optimal start and end bit values, this program is preferred for compressing rainbow tables.\n\nIt depends on the 'rainbowcrack' snap package (as root, run \"snap install --beta rainbowcrack\").  Hence, it works on Linux only.\n\nPlace a directory of RT files in the ~/snap/rainbowcrack/common/ directory, and run with:\n\n  $ python3 %s relative_rt_directory absolute_rtc_directory\n\nNote that the RT input directory path must be relative to the 'common' directory, but the RTC output directory path is absolute.  i.e.: If the RT files are in ~/snap/rainbowcrack/common/rt_files/, and the output should go in ~/rtc, run the program with:\n\n  $ python3 %s rt_files ~/rtc\n" % (sys.argv[0], sys.argv[0]))
+if len(sys.argv) != 4:
+  print("\nThis program runs rainbowcrack's rt2rtc program on a directory of RT files.\n\nBecause rt2rtc does not easily handle the case when two RT files produce the same RTC filename, and because it is not clear if it automatically uses the optimal start and end bit values, this program is preferred for compressing rainbow tables.\n\nIt depends on the 'rainbowcrack' snap package (as root, run \"snap install --beta rainbowcrack\").  Hence, it works on Linux only.\n\nPlace a directory of RT files in the ~/snap/rainbowcrack/common/ directory, and run with:\n\n  $ python3 %s [--keep|--delete] relative_rt_directory absolute_rtc_directory\n\nNote that the --keep argument will cause the source files to be preserved after compression; --delete will delete the originals after compression.  Also note that the RT input directory path must be relative to the 'common' directory, but the RTC output directory path is absolute.  i.e.: If the RT files are in ~/snap/rainbowcrack/common/rt_files/, and the output should go in ~/rtc (and source files should be deleted after compression), run the program with:\n\n  $ python3 %s --delete rt_files ~/rtc\n" % (sys.argv[0], sys.argv[0]))
   exit(0)
 
-rt_dir = sys.argv[1]  # Relative to COMMON_DIR
-result_dir = sys.argv[2]  # Absolute path.
+keep_or_delete = sys.argv[1]
+rt_dir = sys.argv[2]  # Relative to COMMON_DIR
+result_dir = sys.argv[3]  # Absolute path.
+
+if (keep_or_delete != '--keep') and (keep_or_delete != '--delete'):
+  print("Error: first argument must be either '--keep' or '--delete'")
+  exit(-1)
+
+keep_sources = True if keep_or_delete == '--keep' else False
 
 
 # Ensure that the common directory exists.
@@ -170,14 +175,20 @@ for source_filename in source_filenames:
   # Move the RTC into result directory.
   rtc_filename_abs = move_rtc(rtc_filename_relative, result_dir)
 
-  # Move the source file back.
-  shutil.move(source_filename_temp_abs, source_filename_abs)
+  source_size = os.path.getsize(source_filename_temp_abs)
+
+  if keep_sources:
+    # Move the source file back.
+    shutil.move(source_filename_temp_abs, source_filename_abs)
+  else:
+    # Delete the source file.
+    os.remove(source_filename_temp_abs)
 
   rtc_size = os.path.getsize(rtc_filename_abs)
   p("  Compressed size is %.2f GB." % float(rtc_size / (1024 ** 3)))
 
   total_rtc_bytes += rtc_size
-  total_rt_bytes += os.path.getsize(source_filename_abs)
+  total_rt_bytes += source_size
 
 
 os.rmdir(temp_dir_abs)

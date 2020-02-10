@@ -129,11 +129,27 @@ typedef struct {
 } search_thread_args;
 
 
+/* Struct to hold node in linked list of preloaded tables. */
+struct _preloaded_table {
+  char *filepath;
+  cl_ulong *rainbow_table;
+  unsigned int num_chains;
+  struct _preloaded_table *next;
+};
+typedef struct _preloaded_table preloaded_table;
+
+typedef struct {
+  char *rt_dir;
+} preloading_thread_args;
+
+
 unsigned int count_tables(char *dir);
+void find_rt_params(char *dir, rt_parameters *rt_params);
 void free_loaded_hashes(char **hashes, unsigned int *num_hashes);
 void *host_thread_false_alarm(void *ptr);
+void *preloading_thread(void *ptr);
 cl_ulong *search_precompute_cache(char *index_data, unsigned int *num_indices, char *filename, unsigned int filename_size);
-void search_tables(char *dir,  precomputed_and_potential_indices *ppi, rt_parameters *rt_params, thread_args *args);
+void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args);
 void save_cracked_hash(precomputed_and_potential_indices *ppi, unsigned int hash_type);
 
 
@@ -181,9 +197,28 @@ unsigned int printed_false_alarm_ntlm8_message = 0;
  * by the user. */
 unsigned int total_tables = 0;
 
-/* The number of the current table being processed. */
-unsigned int current_table = 0;
+/* Set to 1 by the preloading thread to indicate that no more tables exist for loading. */
+unsigned int table_loading_complete = 0;
 
+/* The current size of the preloaded tables list. */
+unsigned int num_preloaded_tables_available = 0;
+
+/* A linked list of preloaded tables. */
+preloaded_table *preloaded_table_list = NULL;
+
+/* Condition for the main thread to wait for more tables on. */
+pthread_cond_t condition_wait_for_tables = PTHREAD_COND_INITIALIZER;
+
+/* Condition for the preloading thread to wait on (when the MAX_PRELOAD_NUM is reached). */
+pthread_cond_t condition_continue_loading_tables = PTHREAD_COND_INITIALIZER;
+
+/* The lock for the preloaded tables system. */
+pthread_mutex_t preloaded_tables_lock = PTHREAD_MUTEX_INITIALIZER;
+
+
+/* The total number of tables to preload in memory while binary searching and false
+ * alarm checking is done by the main thread. */
+#define MAX_PRELOAD_NUM 2
 
 #define LOCK_PPI() \
   if (pthread_mutex_lock(&ppi_mutex)) { perror("Failed to lock mutex"); exit(-1); }
@@ -468,6 +503,54 @@ void free_loaded_hashes(char **hashes, unsigned int *num_hashes) {
     FREE(hashes);
     *num_hashes = 0;
   }
+}
+
+
+/* Recursively searches the target directory for the first rainbow table file, and uses its filename to infer
+ * the rainbow table parameters. */
+void find_rt_params(char *dir_name, rt_parameters *rt_params) {
+  char filepath[512] = {0};
+  DIR *dir = NULL;
+  struct dirent *de = NULL;
+  struct stat st;
+
+
+  dir = opendir(dir_name);
+  if (dir == NULL)  /* This directory may not allow the current process permission. */
+    return;
+
+  while ((de = readdir(dir)) != NULL) {
+
+    /* Create an absolute path to this entity. */
+    filepath_join(filepath, sizeof(filepath), dir_name, de->d_name);
+
+    /* If this is a directory, recurse into it. */
+    if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0) && (stat(filepath, &st) == 0) && S_ISDIR(st.st_mode)) {
+      find_rt_params(filepath, rt_params);
+
+      /* If we're searching for rainbowtable parameters, and successfully parsed them
+       * in the recursive call, we're done. */
+      if ((rt_params != NULL) && rt_params->parsed) {
+	closedir(dir); dir = NULL;
+	return;
+      }
+
+    /* If this is a compressed or uncompressed rainbow table, process it! */
+    } else if (str_ends_with(de->d_name, ".rt") || str_ends_with(de->d_name, ".rtc")) {
+
+      /* Try to parse them from this file name.  On success, return immediately
+       * (no further processing needed), otherwise continue searching until the
+       * first valid set of parameters is found. */
+      parse_rt_params(rt_params, de->d_name);
+      if (rt_params->parsed) {
+	closedir(dir); dir = NULL;
+	return;
+      }
+
+    }
+  }
+
+  closedir(dir); dir = NULL;
 }
 
 
@@ -1075,6 +1158,166 @@ void precompute_hash(unsigned int num_devices, thread_args *args, precomputed_an
 }
 
 
+void _preloading_thread(char *rt_dir) {
+  DIR *dir = NULL;
+  struct dirent *de = NULL;
+  struct stat st;
+  char filepath[512];
+
+
+  memset(&st, 0, sizeof(st));
+  memset(filepath, 0, sizeof(filepath));
+
+  dir = opendir(rt_dir);
+  if (dir == NULL)  /* This directory may not allow the current process permission. */
+    return;
+
+  while ((de = readdir(dir)) != NULL) {
+
+    /* Create an absolute path to this entity. */
+    filepath_join(filepath, sizeof(filepath), rt_dir, de->d_name);
+
+    /* If this is a directory, recurse into it. */
+    if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0) && (stat(filepath, &st) == 0) && S_ISDIR(st.st_mode)) {
+      _preloading_thread(filepath);
+
+    /* If this is a compressed or uncompressed rainbow table, load it! */
+    } else if (str_ends_with(de->d_name, ".rt") || str_ends_with(de->d_name, ".rtc")) {
+      cl_ulong *rainbow_table = NULL;
+      unsigned int num_chains = 0, is_uncompressed_table = 0;
+      struct timespec start_time_io = {0};
+
+
+      if (str_ends_with(de->d_name, ".rtc")) {
+	int ret = 0;
+
+	start_timer(&start_time_io);    /* For loading the table only. */
+	if ((ret = rtc_decompress(filepath, &rainbow_table, &num_chains)) != 0) {
+	  fprintf(stderr, "Error while decompressing RTC table %s: %d\n", filepath, ret);
+	  exit(-1);
+	}
+	time_io += get_elapsed(&start_time_io);
+      } else {
+	FILE *f = NULL;
+
+	is_uncompressed_table = 1;
+	start_timer(&start_time_io);    /* For loading the table only. */
+	f = fopen(filepath, "rb");
+	if (f != NULL) {
+	  long file_size = get_file_size(f);
+
+	  if ((file_size % (sizeof(cl_ulong) * 2) == 0) && (file_size > 0)) {
+	    unsigned int num_longs = file_size / sizeof(cl_ulong);
+
+	    rainbow_table = calloc(num_longs, sizeof(cl_ulong));
+	    if (rainbow_table == NULL) {
+	      fprintf(stderr, "Failed to allocate %"PRIu64" bytes for rainbow table!: %s\n", num_longs * sizeof(cl_ulong), filepath);
+	      exit(-1);
+	    }
+
+	    if (fread(rainbow_table, sizeof(cl_ulong), num_longs, f) != num_longs) {
+	      fprintf(stderr, "Error while reading rainbow table: %s\n", strerror(errno));
+	      exit(-1);
+	    }
+
+	    time_io += get_elapsed(&start_time_io);
+	    num_chains = num_longs / 2;
+	  } else
+	    fprintf(stderr, "Rainbow table size is not a multiple of %"PRIu64": %ld\n", sizeof(cl_ulong) * 2, file_size);
+
+	  FCLOSE(f);
+	} else
+	  fprintf(stderr, "Could not open file for reading: %s", strerror(errno));
+      }
+
+      if (rainbow_table != NULL) {
+	unsigned int skip_table = 0;
+
+
+	/* If the table is uncompressed (*.rt), then there's a possibility its unsorted on accident.  We will
+	 * verify them first to make sure. */
+	if (is_uncompressed_table == 1) {
+	  if (!verify_rainbowtable(rainbow_table, num_chains, VERIFY_TABLE_TYPE_LOOKUP, 0, 0, NULL)) {
+	    fprintf(stderr, "\nError: %s is not a valid table suitable for lookups!  (Hint: it may not be sorted.)  Skipping...\n\n", filepath);  fflush(stderr);
+	    FREE(rainbow_table);
+	    skip_table = 1; /* Skip further processing on this table only. */
+	  }
+	}
+
+	if (!skip_table) {
+	  preloaded_table *pt = calloc(1, sizeof(preloaded_table));
+	  if (pt == NULL) {
+	    printf("Failed to allocate memory for preload_table.\n");
+	    exit(-1);
+	  }
+
+	  /* Set the file path, rainbow table, and number of chains in the newest entry of the preload list. */
+	  pt->filepath = strdup(filepath);
+	  pt->rainbow_table = rainbow_table;
+	  pt->num_chains = num_chains;
+
+	  /* Lock the preloading system, since we're modifying shared structures. */
+	  pthread_mutex_lock(&preloaded_tables_lock);
+
+	  /* Increase the counter of preloaded tables. */
+	  num_preloaded_tables_available++;
+
+	  /* If the list is empty, add the newest entry as the head. */
+	  if (preloaded_table_list == NULL)
+	    preloaded_table_list = pt;
+	  else { /* The list isn't empty, so traverse it to the end, and append this entry. */
+	    preloaded_table *ptr = preloaded_table_list;
+	    while (ptr->next != NULL)
+	      ptr = ptr->next;
+
+	    ptr->next = pt;
+	  }
+
+	  /* Tell the main thread that we have a table available. */
+	  pthread_cond_signal(&condition_wait_for_tables);
+
+	  /* If we preloaded the maximum number of tables, wait for the main thread to consume at least one
+	   * before preloading more. */
+	  while (num_preloaded_tables_available >= MAX_PRELOAD_NUM)
+	    pthread_cond_wait(&condition_continue_loading_tables, &preloaded_tables_lock);
+
+	  /* Release the preloading system lock. */
+	  pthread_mutex_unlock(&preloaded_tables_lock);
+	}
+      }
+    }
+  }
+
+  closedir(dir); dir = NULL;
+}
+
+
+/* The thread which preloads tables in the background while the main thread performs binary searching & false
+ * alarm checks. */
+void *preloading_thread(void *ptr) {
+  char *xrt_dir = ((preloading_thread_args *)ptr)->rt_dir;
+  char rt_dir[512];
+
+
+  memset(rt_dir, 0, sizeof(rt_dir));
+
+  /* Copy the rainbow table path from the heap to the local stack, then free the source. */
+  strncpy(rt_dir, xrt_dir, sizeof(rt_dir) - 1);
+  free(xrt_dir); xrt_dir = ((preloading_thread_args *)ptr)->rt_dir = NULL;
+
+  _preloading_thread(rt_dir);
+
+  /* We've reached the end of all the tables, so tell the main thread. */
+  table_loading_complete = 1;
+
+  /* If the main thread is still waiting on new tables, wake it up. */
+  pthread_mutex_lock(&preloaded_tables_lock);
+  pthread_cond_signal(&condition_wait_for_tables);
+  pthread_mutex_unlock(&preloaded_tables_lock);
+  return NULL;
+}
+
+
 void print_usage_and_exit(char *prog_name, int exit_code) {
 #ifdef _WIN32
   fprintf(stderr, "Usage: %s rainbow_table_directory (single_hash | filename_with_many_hashes.txt)\n\nExample:\n    %s D:\\rt_ntlm\\ 64f12cddaa88057e06a81b54e73b949b\n    %s D:\\rt_ntlm\\ C:\\Users\\jsmith\\Desktop\\hashes.txt [-gws GWS]\n\n", prog_name, prog_name, prog_name);
@@ -1352,167 +1595,113 @@ cl_ulong *search_precompute_cache(char *index_data, unsigned int *num_indices, c
 }
 
 
-void search_tables(char *dir_name, precomputed_and_potential_indices *ppi, rt_parameters *rt_params, thread_args *args) {
-  char filepath[512] = {0};
-  DIR *dir = NULL;
-  struct dirent *de = NULL;
-  struct stat st;
+/* Returns a preloaded_table entry, or NULL if no more tables are left to process.  The caller must
+ * free it and all member variables. */
+preloaded_table *get_preloaded_table() {
+  preloaded_table *ret = NULL;
 
+  pthread_mutex_lock(&preloaded_tables_lock);
 
-  dir = opendir(dir_name);
-  if (dir == NULL)  /* This directory may not allow the current process permission. */
-    return;
+  /* If no tables have been preloaded yet, wait until at least one becomes available. */
+  while ((num_preloaded_tables_available == 0) && (table_loading_complete == 0))
+    pthread_cond_wait(&condition_wait_for_tables, &preloaded_tables_lock);
 
-  while ((de = readdir(dir)) != NULL) {
+  /* Return the head of the list. */
+  ret = preloaded_table_list;
 
-    /* Create an absolute path to this entity. */
-    filepath_join(filepath, sizeof(filepath), dir_name, de->d_name);
+  /* If the head of the list isn't NULL, advance it by one. */
+  if (preloaded_table_list != NULL) {
+    preloaded_table_list = preloaded_table_list->next;
 
-    /* If this is a directory, recurse into it. */
-    if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0) && (stat(filepath, &st) == 0) && S_ISDIR(st.st_mode)) {
-      search_tables(filepath, ppi, rt_params, args);
+    if (num_preloaded_tables_available > 0)
+      num_preloaded_tables_available--;
 
-      /* If we're searching for rainbowtable parameters, and successfully parsed them
-       * in the recursive call, we're done. */
-      if ((rt_params != NULL) && rt_params->parsed)
-	return;
-
-    /* If this is a compressed or uncompressed rainbow table, process it! */
-    } else if (str_ends_with(de->d_name, ".rt") || str_ends_with(de->d_name, ".rtc")) {
-
-      /* If the caller is only interested in rainbow table parameters... */
-      if (rt_params != NULL) {
-
-	/* Try to parse them from this file name.  On success, return immediately
-	 * (no further processing needed), otherwise continue searching until the
-	 * first valid set of parameters is found. */
-	parse_rt_params(rt_params, de->d_name);
-	if (rt_params->parsed)
-	  return;
-
-      } else {
-	long file_size = 0;
-	FILE *f = NULL;
-	cl_ulong *rainbow_table = NULL;
-	unsigned int num_chains = 0, num_uncracked = 0;
-	struct timespec start_time_table = {0}, start_time_io = {0};
-	double time_io_this_table = 0.0;
-	precomputed_and_potential_indices *ppi_cur = ppi;
-	unsigned int is_uncompressed_table = 0;
-
-
-	/* Count the number of uncracked hashes we have left. */
-	while (ppi_cur != NULL) {
-	  if (ppi_cur->plaintext == NULL)
-	    num_uncracked++;
-
-	  ppi_cur = ppi_cur->next;
-	}
-
-	/* If all the hashes were cracked, there's no need to continue processing
-	 * tables. */
-	if (num_uncracked == 0) {
-	  printf("All hashes cracked.  Skipping rest of tables.\n");
-	  break;
-	}
-
-	if (str_ends_with(de->d_name, ".rtc")) {
-	  int ret = 0;
-
-	  current_table++;
-	  printf("[%u of %u] Processing compressed table: %s...\n", current_table, total_tables, filepath);  fflush(stdout);
-
-	  start_timer(&start_time_table); /* For all table processes. */
-	  start_timer(&start_time_io);    /* For loading the table only. */
-	  if ((ret = rtc_decompress(filepath, &rainbow_table, &num_chains)) != 0) {
-	    fprintf(stderr, "Error while decompressing RTC table: %d\n", ret);
-	    exit(-1);
-	  }
-	  time_io_this_table = get_elapsed(&start_time_io);
-	  time_io += time_io_this_table;
-	} else {
-	  current_table++;
-	  printf("[%u of %u] Processing uncompressed table: %s...\n", current_table, total_tables, filepath);  fflush(stdout);
-	  is_uncompressed_table = 1;
-
-	  start_timer(&start_time_table); /* For all table processes. */
-	  start_timer(&start_time_io);    /* For loading the table only. */
-	  f = fopen(filepath, "rb");
-	  if (f != NULL) {
-	    file_size = get_file_size(f);
-
-	    if ((file_size % (sizeof(cl_ulong) * 2) == 0) && (file_size > 0)) {
-	      unsigned int num_longs = file_size / sizeof(cl_ulong);
-
-	      rainbow_table = calloc(num_longs, sizeof(cl_ulong));
-	      if (rainbow_table == NULL) {
-		fprintf(stderr, "Failed to allocate %"PRIu64" bytes for rainbow table!: %s\n", num_longs * sizeof(cl_ulong), filepath);
-		exit(-1);
-	      }
-
-	      if (fread(rainbow_table, sizeof(cl_ulong), num_longs, f) != num_longs) {
-		fprintf(stderr, "Error while reading rainbow table: %s\n", strerror(errno));
-		exit(-1);
-	      }
-	      time_io_this_table = get_elapsed(&start_time_io);
-	      time_io += time_io_this_table;
-	      num_chains = num_longs / 2;
-	    } else
-	      fprintf(stderr, "Rainbow table size is not a multiple of %"PRIu64": %ld\n", sizeof(cl_ulong) * 2, file_size);
-	  } else
-	    fprintf(stderr, "Could not open file for reading: %s", strerror(errno));
-
-	  FCLOSE(f);
-	}
-
-	if (rainbow_table != NULL) {
-	  char time_io_str[64] = {0};
-	  unsigned int skip_table = 0;
-
-	  seconds_to_human_time(time_io_str, sizeof(time_io_str), time_io_this_table);
-	  printf("  Table loaded in %s.\n", time_io_str);  fflush(stdout);
-
-	  /* If the table is uncompressed (*.rt), then there's a possibility its unsorted on accident.  We will
-	   * verify them first to make sure. */
-	  if (is_uncompressed_table == 1) {
-	    struct timespec start_time_verify = {0};
-
-	    printf("Verifying uncompressed table is suitable for lookups...");  fflush(stdout);
-	    start_timer(&start_time_verify);
-	    if (!verify_rainbowtable(rainbow_table, num_chains, VERIFY_TABLE_TYPE_LOOKUP, 0, 0, NULL)) {
-	      fprintf(stderr, "\nError: %s is not a valid table suitable for lookups!  (Hint: it may not be sorted.)  Skipping...\n\n", filepath);  fflush(stderr);
-	      FREE(rainbow_table);
-	      skip_table = 1; /* Skip further processing on this table only. */
-	    }
-	    printf("done in %.1f seconds.\n", get_elapsed(&start_time_verify));  fflush(stdout);
-	  }
-	  if (skip_table == 0) {
-	    rt_binary_search(rainbow_table, num_chains, ppi);
-	    num_chains_processed += num_chains;
-	    num_tables_processed++;
-	    FREE(rainbow_table);
-
-	    /* Check endpoint matches. */
-	    check_false_alarms(ppi, args);
-
-	    printf("  Table fully processed in %.1f seconds.\n\n", get_elapsed(&start_time_table)); fflush(stdout);
-
-	    /* We checked the potential matches above, so there's nothing else to with
-	     * them. */
-	    clear_potential_start_indices(ppi);
-	  }
-	}
-      }
-    }
+    /* Wake up the preloading thread if its waiting because it loaded the max.  Now that we're
+     * consuming one table, it can load the next concurrently. */
+    pthread_cond_signal(&condition_continue_loading_tables);
   }
 
-  closedir(dir); dir = NULL;
+  pthread_mutex_unlock(&preloaded_tables_lock);
+  return ret;
+}
+
+
+void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args) {
+  unsigned int num_uncracked = 0, current_table = 0;
+  struct timespec start_time_table = {0};
+  precomputed_and_potential_indices *ppi_cur = ppi;
+  preloaded_table *pt = NULL;
+
+
+  while (1) {
+
+    /* Count the number of uncracked hashes we have left. */
+    while (ppi_cur != NULL) {
+      if (ppi_cur->plaintext == NULL)
+	num_uncracked++;
+
+      ppi_cur = ppi_cur->next;
+    }
+    
+    /* If all the hashes were cracked, there's no need to continue processing
+     * tables. */
+    if (num_uncracked == 0) {
+      printf("All hashes cracked.  Skipping rest of tables.\n");
+      break;
+    }
+
+    /* Get the next preloaded table.  If NULL, we reached the end. */
+    pt = get_preloaded_table();
+    if (pt == NULL)
+      break;
+
+    current_table++;
+    printf("[%u of %u] Processing table: %s...\n", current_table, total_tables, pt->filepath);  fflush(stdout);
+
+    start_timer(&start_time_table);
+    rt_binary_search(pt->rainbow_table, pt->num_chains, ppi);
+
+    num_chains_processed += pt->num_chains;
+    num_tables_processed++;
+
+    /* Free the preloaded table. */
+    FREE(pt->filepath);
+    FREE(pt->rainbow_table);
+    pt->num_chains = 0;
+    FREE(pt);
+
+    /* Check endpoint matches. */
+    check_false_alarms(ppi, args);
+
+    printf("  Table fully processed in %.1f seconds.\n\n", get_elapsed(&start_time_table)); fflush(stdout);
+
+    /* We checked the potential matches above, so there's nothing else to do with
+     * them. */
+    clear_potential_start_indices(ppi);
+
+  }
+
+  /* Free any remaining preloaded tables (i.e.: if we cracked all the hashes and quit early). */
+  /* Note: technically, this may not be a complete solution, if this is reached while the preloading
+   * thread is still performing work... */
+  pthread_mutex_lock(&preloaded_tables_lock);
+  while (preloaded_table_list != NULL) {
+    preloaded_table *pt_next = preloaded_table_list->next;
+
+    FREE(preloaded_table_list->filepath);
+    FREE(preloaded_table_list->rainbow_table);
+    preloaded_table_list->num_chains = 0;
+    FREE(preloaded_table_list);
+    
+    preloaded_table_list = pt_next;
+  }
+  pthread_mutex_unlock(&preloaded_tables_lock);
 }
 
 
 int main(int ac, char **av) {
   char *rt_dir = NULL, *single_hash = NULL, *filename = NULL, *file_data = NULL, **hashes = NULL, *line = NULL, *pot_file_data = NULL;
-  unsigned int i = 0, j = 0, num_hashes = 0;
+  unsigned int i = 0, j = 0, num_hashes = 0, err = 0;
   FILE *f = NULL;
   struct stat st = {0};
   thread_args *args = NULL;
@@ -1527,6 +1716,9 @@ int main(int ac, char **av) {
   cl_uint num_platforms = 0, num_devices = 0;
 
   precomputed_and_potential_indices *ppi_head = NULL, *ppi_cur = NULL;
+
+  pthread_t preload_thread_id = {0};
+  preloading_thread_args preload_thread_args = {0};
 
 
   ENABLE_CONSOLE_COLOR();
@@ -1714,7 +1906,7 @@ int main(int ac, char **av) {
 
   /* Look through the supplied rainbow table directory, and infer the parameters via
    * the filenames. */
-  search_tables(rt_dir, NULL, &rt_params, NULL);
+  find_rt_params(rt_dir, &rt_params);
   if (!rt_params.parsed) {
     fprintf(stderr, "Failed to infer rainbow table parameters from files in directory.  Ensure that valid rainbow table files are in %s (and/or its sub-directories).\n", rt_dir);
     exit(-1);
@@ -1785,16 +1977,24 @@ int main(int ac, char **av) {
    * and its not obvious that this is the culprit. */
   check_memory_usage();
 
+  /* Start preloading tables into memory. */
+  preload_thread_args.rt_dir = strdup(rt_dir);
+  err = pthread_create(&preload_thread_id, NULL, preloading_thread, &preload_thread_args);
+  if (err != 0) {
+    printf("Failed to create thread: %d\n", err);
+    return -1;
+  }
+
   /* Using the pre-computed end indices, perform a binary search on all rainbow tables
    * in the target directory.  Any matching indices will trigger false alarm checks. */
   total_tables = count_tables(rt_dir);
-  search_tables(rt_dir, ppi_head, NULL, args);
+  search_tables(total_tables, ppi_head, args);
 
   seconds_to_human_time(time_precomp_str, sizeof(time_precomp_str), time_precomp);
   seconds_to_human_time(time_io_str, sizeof(time_io_str), time_io);
   seconds_to_human_time(time_searching_str, sizeof(time_searching_str), time_searching);
   seconds_to_human_time(time_falsealarms_str, sizeof(time_falsealarms_str), time_falsealarms);
-  seconds_to_human_time(time_total_str, sizeof(time_total_str), time_precomp + time_io + time_searching + time_falsealarms);
+  seconds_to_human_time(time_total_str, sizeof(time_total_str), time_precomp + /*time_io +*/ time_searching + time_falsealarms);
   seconds_to_human_time(time_per_table_str, sizeof(time_per_table_str), (double)(time_precomp + time_io + time_searching + time_falsealarms) / (double)num_tables_processed);
 
   printf("\n\n        RAINBOW CRACKALACK LOOKUP REPORT\n\n");
@@ -1818,7 +2018,7 @@ int main(int ac, char **av) {
     printf(" Results have been written in hashcat format to: %s\n\n\n", hashcat_pot_filename);
   }
 
-  printf(" * Time Summary *\n\n      Precomputation: %s\n                 I/O: %s\n           Searching: %s\n  False alarm checks: %s\n\n               Total: %s\n\n\n", time_precomp_str, time_io_str, time_searching_str, time_falsealarms_str, time_total_str);
+  printf(" * Time Summary *\n\n      Precomputation: %s\n      I/O (parallel): %s\n           Searching: %s\n  False alarm checks: %s\n\n               Total: %s\n\n\n", time_precomp_str, time_io_str, time_searching_str, time_falsealarms_str, time_total_str);
 
   printf(" * Statistics *\n\n          Number of tables processed: %u\n              Number of false alarms: %" QUOTE PRIu64"\n          Number of chains processed: %" QUOTE PRIu64"\n\n                Time spent per table: %s\n     False alarms checked per second: %" QUOTE ".1f\n\n         False alarms per no. chains: %.5f%%\n  Successful cracks per false alarms: %.5f%%\n  Successful cracks per total chains: %.8f%%\n\n\n", num_tables_processed, num_falsealarms, num_chains_processed, time_per_table_str, (double)num_falsealarms / time_falsealarms, ((double)num_falsealarms / (double)num_chains_processed) * 100.0, ((double)num_cracked / (double)num_falsealarms) * 100.0, ((double)num_cracked / (double)num_chains_processed) * 100.0);
 

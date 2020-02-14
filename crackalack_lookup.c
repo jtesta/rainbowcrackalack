@@ -215,6 +215,9 @@ pthread_cond_t condition_continue_loading_tables = PTHREAD_COND_INITIALIZER;
 /* The lock for the preloaded tables system. */
 pthread_mutex_t preloaded_tables_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/* The time at which table searching begins. */
+struct timespec search_start_time = {0};
+
 
 /* The total number of tables to preload in memory while binary searching and false
  * alarm checking is done by the main thread. */
@@ -1318,6 +1321,20 @@ void *preloading_thread(void *ptr) {
 }
 
 
+/* Given the number of tables processed out of the total, prints the estimated time left to
+ * completion. */
+void print_eta(unsigned int num_tables_processed, unsigned int num_tables_total) {
+  double seconds_per_table = (double)(get_elapsed(&search_start_time) / (double)num_tables_processed);
+  unsigned int num_tables_left = num_tables_total - num_tables_processed;
+  unsigned int num_seconds_left = num_tables_left * seconds_per_table;
+  char eta_str[64] = {0};
+
+
+  seconds_to_human_time(eta_str, sizeof(eta_str), num_seconds_left);
+  printf("  Estimated time remaining (at most): %s\n\n", eta_str); fflush(stdout);
+}
+
+
 void print_usage_and_exit(char *prog_name, int exit_code) {
 #ifdef _WIN32
   fprintf(stderr, "Usage: %s rainbow_table_directory (single_hash | filename_with_many_hashes.txt)\n\nExample:\n    %s D:\\rt_ntlm\\ 64f12cddaa88057e06a81b54e73b949b\n    %s D:\\rt_ntlm\\ C:\\Users\\jsmith\\Desktop\\hashes.txt [-gws GWS]\n\n", prog_name, prog_name, prog_name);
@@ -1673,7 +1690,8 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
     /* Check endpoint matches. */
     check_false_alarms(ppi, args);
 
-    printf("  Table fully processed in %.1f seconds.\n\n", get_elapsed(&start_time_table)); fflush(stdout);
+    printf("  Table fully processed in %.1f seconds.\n", get_elapsed(&start_time_table)); fflush(stdout);
+    print_eta(num_tables_processed, total_tables);
 
     /* We checked the potential matches above, so there's nothing else to do with
      * them. */
@@ -1988,6 +2006,7 @@ int main(int ac, char **av) {
   /* Using the pre-computed end indices, perform a binary search on all rainbow tables
    * in the target directory.  Any matching indices will trigger false alarm checks. */
   total_tables = count_tables(rt_dir);
+  start_timer(&search_start_time);
   search_tables(total_tables, ppi_head, args);
 
   seconds_to_human_time(time_precomp_str, sizeof(time_precomp_str), time_precomp);

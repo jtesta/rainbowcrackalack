@@ -1,26 +1,20 @@
-# Rainbow Crackalack v1.2-dev
+# Rainbow Crackalack v1.2
 
 Author: [Joe Testa](https://www.positronsecurity.com/company/) ([@therealjoetesta](https://twitter.com/therealjoetesta))
 
 ## About
 
-This project produces open-source code to generate rainbow tables as well as use them to look up password hashes.  While the current release only supports NTLM, future releases aim to support MD5, SHA-1, SHA-256, and possibly more.  Both Linux and Windows are supported!
+This project produces open-source code to generate rainbow tables as well as use them to look up password hashes.  While the current release only supports NTLM, future releases may support MD5, SHA-1, SHA-256, and possibly more.  Both Linux and Windows are supported!
 
 For more information, see the project website: [https://www.rainbowcrackalack.com/](https://www.rainbowcrackalack.com/)
 
-## Bounty Program
-
-Want to work on this project and get paid for your work?  See the [project page](https://www.rainbowcrackalack.com/#bounty) for more details on what bounties are currently being offered!
-
-## Volunteering
-
-The project for generating NTLM 9-character tables is now underway!  If you create 5 tables for us, your name will be listed on the [project website](https://www.rainbowcrackalack.com/) as a project supporter.  If you create 200 tables, we will mail you a free magnetic hard drive containing NTLM 9-character tables with 50% efficiency.  Ships world-wide!
-
-If you have modern GPU equipment and you'd like to contribute, please [reach out using this form](https://www.rainbowcrackalack.com/?showcontact=true) to coordinate efforts.
-
 ## NTLM Tables
 
-Currently, NTLM 8-character tables are available for [free download via Bittorrent](https://www.rainbowcrackalack.com/rainbow_crackalack_ntlm_8.torrent).  For convenience, they [may also be purchased](https://www.rainbowcrackalack.com/#download) on an SSD with a USB 3.0 external enclosure.
+NTLM 8-character tables (93% effective) are available for [free download via Bittorrent](https://www.rainbowcrackalack.com/rainbow_crackalack_ntlm_8.torrent).
+
+NTLM 9-character tables (50% effective) are available for [free download via Bittorrent](https://www.rainbowcrackalack.com/rainbow_crackalack_ntlm_9.torrent).
+
+For convenience, the tables [may also be purchased](https://www.rainbowcrackalack.com/#download) on a USB 3.0 external hard drive.
 
 ## Examples
 
@@ -57,9 +51,9 @@ However, other modern equipment can work just fine, so you don't necessarily nee
 
 ## Change Log
 
+- v1.2: April 1, 2020: Lookup tables are now pre-loaded in parallel to binary searching & false alarm checking, resulting in 20-30% speed improvement on magnetic media.
+- v1.1: August 8, 2019: Massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
 - v1.0: June 11, 2019: Initial revision.
-- v1.1: August 8, 2019: massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
-- v1.2: ???: `crackalack_lookup` now cracks uppercase hashes.
 
 ## Windows Build
 

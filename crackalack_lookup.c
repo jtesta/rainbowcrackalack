@@ -1659,7 +1659,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
 
       ppi_cur = ppi_cur->next;
     }
-    
+
     /* If all the hashes were cracked, there's no need to continue processing
      * tables. */
     if (num_uncracked == 0) {
@@ -1710,7 +1710,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
     FREE(preloaded_table_list->rainbow_table);
     preloaded_table_list->num_chains = 0;
     FREE(preloaded_table_list);
-    
+
     preloaded_table_list = pt_next;
   }
   pthread_mutex_unlock(&preloaded_tables_lock);

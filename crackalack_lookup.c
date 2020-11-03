@@ -399,7 +399,7 @@ void check_false_alarms(precomputed_and_potential_indices *ppi, thread_args *arg
 	FREE(ppi_refs[j]->precomputed_end_indices);
 
 	save_cracked_hash(ppi_refs[j], args[i].hash_type);
-	printf("HASH CRACKED => %s:%s\n", ppi_refs[j]->hash, plaintext);  fflush(stdout);
+	printf("%sHASH CRACKED%s => %s:%s%s%s\n", GREENB, CLR, ppi_refs[j]->hash, GREENB, plaintext, CLR);  fflush(stdout);
       }
     }
   }
@@ -459,8 +459,10 @@ unsigned int count_tables(char *dir) {
 
 
   d = opendir(dir);
-  if (d == NULL)
+  if (d == NULL) {
+    fprintf(stderr, "Failed to open directory %s: %s\n", dir, strerror(errno)); fflush(stderr);
     return 0;
+  }
 
   while ((de = readdir(d)) != NULL) {
 #ifdef _WIN32
@@ -487,8 +489,11 @@ unsigned int count_tables(char *dir) {
 
     if (is_file && (str_ends_with(de->d_name, ".rt") || str_ends_with(de->d_name, ".rtc")))
       ret++;
-    else if (is_dir && (strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0))
-      ret += count_tables(de->d_name);
+    else if (is_dir && (strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0)) {
+      char subdir_path[1024] = {0};
+      filepath_join(subdir_path, sizeof(subdir_path) - 1, dir, de->d_name);
+      ret += count_tables(subdir_path);
+    }
   }
 
   closedir(d);
@@ -1835,7 +1840,7 @@ int main(int ac, char **av) {
 
 
     if (f == NULL) {
-      fprintf(stderr, "Error while opening file for reading: %s\n", filename);
+      fprintf(stderr, "Error while opening file %s for reading: %s\n", filename, strerror(errno));
       goto err;
     }
 
@@ -1846,7 +1851,7 @@ int main(int ac, char **av) {
     }
 
     if (fread(file_data, sizeof(char), st.st_size, f) != st.st_size) {
-      fprintf(stderr, "Error while reading hash file.\n");
+      fprintf(stderr, "Error while reading hash file: %s\n", strerror(errno));
       goto err;
     }
 
@@ -2016,12 +2021,12 @@ int main(int ac, char **av) {
   seconds_to_human_time(time_total_str, sizeof(time_total_str), time_precomp + /*time_io +*/ time_searching + time_falsealarms);
   seconds_to_human_time(time_per_table_str, sizeof(time_per_table_str), (double)(time_precomp + time_io + time_searching + time_falsealarms) / (double)num_tables_processed);
 
-  printf("\n\n        RAINBOW CRACKALACK LOOKUP REPORT\n\n");
+  printf("\n\n        %sRAINBOW CRACKALACK LOOKUP REPORT%s\n\n", WHITEB, CLR);
 
   if (num_cracked == 0)
     printf("\nNo hashes were cracked.  :(\n\n\n");
   else {
-    printf(" * Crack Summary *\n\n");
+    printf(" %s* Crack Summary *%s\n\n", WHITEB, CLR);
     printf("   Of the %u hashes loaded, %u were cracked, or %.2f%%.\n\n", num_hashes, num_cracked, ((double)num_cracked / (double)num_hashes) * 100);
 
     printf(" Results\n -------\n");
@@ -2037,9 +2042,9 @@ int main(int ac, char **av) {
     printf(" Results have been written in hashcat format to: %s\n\n\n", hashcat_pot_filename);
   }
 
-  printf(" * Time Summary *\n\n      Precomputation: %s\n      I/O (parallel): %s\n           Searching: %s\n  False alarm checks: %s\n\n               Total: %s\n\n\n", time_precomp_str, time_io_str, time_searching_str, time_falsealarms_str, time_total_str);
+  printf(" %s* Time Summary *%s\n\n      Precomputation: %s\n      I/O (parallel): %s\n           Searching: %s\n  False alarm checks: %s\n\n               Total: %s\n\n\n", WHITEB, CLR, time_precomp_str, time_io_str, time_searching_str, time_falsealarms_str, time_total_str);
 
-  printf(" * Statistics *\n\n          Number of tables processed: %u\n              Number of false alarms: %" QUOTE PRIu64"\n          Number of chains processed: %" QUOTE PRIu64"\n\n                Time spent per table: %s\n     False alarms checked per second: %" QUOTE ".1f\n\n         False alarms per no. chains: %.5f%%\n  Successful cracks per false alarms: %.5f%%\n  Successful cracks per total chains: %.8f%%\n\n\n", num_tables_processed, num_falsealarms, num_chains_processed, time_per_table_str, (double)num_falsealarms / time_falsealarms, ((double)num_falsealarms / (double)num_chains_processed) * 100.0, ((double)num_cracked / (double)num_falsealarms) * 100.0, ((double)num_cracked / (double)num_chains_processed) * 100.0);
+  printf(" %s* Statistics *%s\n\n          Number of tables processed: %u\n              Number of false alarms: %" QUOTE PRIu64"\n          Number of chains processed: %" QUOTE PRIu64"\n\n                Time spent per table: %s\n     False alarms checked per second: %" QUOTE ".1f\n\n         False alarms per no. chains: %.5f%%\n  Successful cracks per false alarms: %.5f%%\n  Successful cracks per total chains: %.8f%%\n\n\n", WHITEB, CLR, num_tables_processed, num_falsealarms, num_chains_processed, time_per_table_str, (double)num_falsealarms / time_falsealarms, ((double)num_falsealarms / (double)num_chains_processed) * 100.0, ((double)num_cracked / (double)num_falsealarms) * 100.0, ((double)num_cracked / (double)num_chains_processed) * 100.0);
 
   free_precomputed_and_potential_indices(&ppi_head);
   free_loaded_hashes(hashes, &num_hashes);

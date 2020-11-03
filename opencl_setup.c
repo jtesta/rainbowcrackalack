@@ -234,6 +234,33 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
   if (verbose)
     print_device_info(devices, *num_devices);
 
+  {  /* Workaround for Intel + AMD/NVIDIA setups. */
+    char device_vendor[128] = {0};
+    unsigned int intel_found = 0, amd_or_nvidia_found = 0;
+    unsigned int intel_slot = 0;
+
+    for (i = 0; i < *num_devices; i++) {
+      get_device_str(devices[i], CL_DEVICE_VENDOR, device_vendor, sizeof(device_vendor) - 1);
+
+      if (strstr(device_vendor, "Intel") != NULL) {
+        intel_found = 1;
+        intel_slot = i;
+      } else if (strstr(device_vendor, "NVIDIA") != NULL)
+        amd_or_nvidia_found = 1;
+      else if (strstr(device_vendor, "Advanced Micro Devices") != NULL)
+        amd_or_nvidia_found = 1;
+    }
+
+    /* If a mixed system was found, overwrite the Intel device ID in the array and decrement the number of devices. */
+    if (intel_found && amd_or_nvidia_found) {
+      printf("\nFound system with Intel + NVIDIA/AMD mix.  Disabling Intel GPU at %u.\n", intel_slot);
+      for (i = intel_slot; i < *num_devices - 1; i++)
+        devices[i] = devices[i + 1];
+
+      *num_devices = *num_devices - 1;
+    }
+  }
+
   return;
 }
 
@@ -331,7 +358,7 @@ void load_kernel(cl_context context, cl_uint num_devices, const cl_device_id *de
 }
 
 
-/* Prints debugging information about devices. */
+/* Prints debugging information about devices.  Returns 0 - num_devices-1 if an Intel + AMD/NVIDIA setup is found; this signifies the index in devices[] where the Intel GPU is.  Otherwise returns -1. */
 void print_device_info(cl_device_id *devices, cl_uint num_devices) {
   int i = 0;
   char device_name[64] = {0};

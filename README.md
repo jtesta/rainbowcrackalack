@@ -51,6 +51,7 @@ However, other modern equipment can work just fine, so you don't necessarily nee
 
 ## Change Log
 
+- v1.3-dev: ???: Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.
 - v1.2: April 2, 2020: Lookup tables are now pre-loaded in parallel to binary searching & false alarm checking, resulting in 30-40% speed improvement (!).
 - v1.1: August 8, 2019: Massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
 - v1.0: June 11, 2019: Initial revision.

@@ -2011,14 +2011,16 @@ int main(int ac, char **av) {
     }
 
   } else { /* A single hash was provided. */
+    usernames = calloc(1, sizeof(char *));
     hashes = calloc(1, sizeof(char *));
-    if (hashes == NULL) {
+    if ((usernames == NULL) || (hashes == NULL)) {
       fprintf(stderr, "Error while allocating buffer for hashes.\n");
       goto err;
     }
 
     /* Ensure that hash is lowercase. */
     str_to_lowercase(single_hash);
+    usernames[0] = NULL;
     hashes[0] = strdup(single_hash);
     num_hashes = 1;
   }

@@ -50,11 +50,22 @@ The NVIDIA GTX & RTX lines of GPU hardware has been well-tested with the Rainbow
 However, other modern equipment can work just fine, so you don't necessarily need to purchase something new.  The NVIDIA GTX and AMD Vega product lines are still quite useful for cracking!
 
 ## Change Log
+### v1.3-dev (???)
+ - Added support for pwdump-formatted hash files.
+ - Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.
+ - Fixed bug in counting tables during lookup.
+ - Added lookup colors.
 
-- v1.3-dev: ???: Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.  Fixed bug in counting tables during lookup.  Added lookup colors.
-- v1.2: April 2, 2020: Lookup tables are now pre-loaded in parallel to binary searching & false alarm checking, resulting in 30-40% speed improvement (!).
-- v1.1: August 8, 2019: Massive speed improvements (credit Steve Thomas), finalization of NTLM9 spec, bugfixes.
-- v1.0: June 11, 2019: Initial revision.
+### v1.2 (April 2, 2020)
+ - Lookup tables are now pre-loaded in parallel to binary searching & false alarm checking, resulting in 30-40% speed improvement (!).
+
+### v1.1 (August 8, 2019)
+ - Massive speed improvements (credit Steve Thomas).
+ - Finalization of NTLM9 spec.
+ - Various bugfixes.
+
+### v1.0 (June 11, 2019)
+ - Initial revision.
 
 ## Windows Build
 

@@ -57,10 +57,13 @@
 #define FALSE_ALARM_KERNEL_PATH "false_alarm_check.cl"
 #define FALSE_ALARM_NTLM8_KERNEL_PATH "false_alarm_check_ntlm8.cl"
 
+#define HASH_FILE_FORMAT_PLAIN 1
+#define HASH_FILE_FORMAT_PWDUMP 2
 
 
 /* Struct to form a linked list of precomputed end indices, and potential start indices (which are usually false alarms). */
 struct _precomputed_and_potential_indices {
+  char *username;  /* Non-NULL if loaded file format is pwdump. */
   char *hash;
   cl_ulong *precomputed_end_indices;
   cl_uint num_precomputed_end_indices;
@@ -93,6 +96,7 @@ typedef struct {
 typedef struct {
   unsigned int hash_type;
   char *hash_name;
+  char *username; /* Non-NULL when pwdump format input file given. */
   char *hash; /* In hex. */
   char *charset;
   char *charset_name;
@@ -145,7 +149,7 @@ typedef struct {
 
 unsigned int count_tables(char *dir);
 void find_rt_params(char *dir, rt_parameters *rt_params);
-void free_loaded_hashes(char **hashes, unsigned int *num_hashes);
+void free_loaded_hashes(char **usernames, char **hashes, unsigned int *num_hashes);
 void *host_thread_false_alarm(void *ptr);
 void *preloading_thread(void *ptr);
 cl_ulong *search_precompute_cache(char *index_data, unsigned int *num_indices, char *filename, unsigned int filename_size);
@@ -399,7 +403,7 @@ void check_false_alarms(precomputed_and_potential_indices *ppi, thread_args *arg
 	FREE(ppi_refs[j]->precomputed_end_indices);
 
 	save_cracked_hash(ppi_refs[j], args[i].hash_type);
-	printf("%sHASH CRACKED%s => %s:%s%s%s\n", GREENB, CLR, ppi_refs[j]->hash, GREENB, plaintext, CLR);  fflush(stdout);
+        printf("%sHASH CRACKED => %s:%s%s\n", GREENB, (ppi_refs[j]->username != NULL) ? ppi_refs[j]->username : ppi_refs[j]->hash, plaintext, CLR);  fflush(stdout);
       }
     }
   }
@@ -502,15 +506,23 @@ unsigned int count_tables(char *dir) {
 
 
 /* Free the hashes we loaded from disk or command line. */
-void free_loaded_hashes(char **hashes, unsigned int *num_hashes) {
+void free_loaded_hashes(char **usernames, char **hashes, unsigned int *num_hashes) {
+  unsigned int i = 0;
+
+  if (usernames != NULL) {
+    for (i = 0; i < *num_hashes; i++) {
+      FREE(usernames[i]);
+    }
+    FREE(usernames);
+  }
+
   if (hashes != NULL) {
-    unsigned int i = 0;
-    for (; i < *num_hashes; i++) {
+    for (i = 0; i < *num_hashes; i++) {
       FREE(hashes[i]);
     }
     FREE(hashes);
-    *num_hashes = 0;
   }
+  *num_hashes = 0;
 }
 
 
@@ -1146,6 +1158,7 @@ void precompute_hash(unsigned int num_devices, thread_args *args, precomputed_an
     ppi = ppi->next;
   }
 
+  ppi->username = args->username;
   ppi->hash = args->hash;
   ppi->num_precomputed_end_indices = output_index;
 
@@ -1723,8 +1736,8 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
 
 
 int main(int ac, char **av) {
-  char *rt_dir = NULL, *single_hash = NULL, *filename = NULL, *file_data = NULL, **hashes = NULL, *line = NULL, *pot_file_data = NULL;
-  unsigned int i = 0, j = 0, num_hashes = 0, err = 0;
+  char *rt_dir = NULL, *single_hash = NULL, *filename = NULL, *file_data = NULL, **usernames = NULL, **hashes = NULL, *line = NULL, *pot_file_data = NULL;
+  unsigned int i = 0, j = 0, max_num_hashes = 0, num_hashes = 0, num_colons = 0, file_format = 0, err = 0;
   FILE *f = NULL;
   struct stat st = {0};
   thread_args *args = NULL;
@@ -1861,12 +1874,32 @@ int main(int ac, char **av) {
      * hash array. */
     for (i = 0; i < st.st_size; i++) {
       if (file_data[i] == '\n')
-	num_hashes++;
+	max_num_hashes++;
     }
-    num_hashes++;  /* In case the last line doesn't end with an LF. */
+    max_num_hashes++;  /* In case the last line doesn't end with an LF. */
 
-    hashes = calloc(num_hashes, sizeof(char *));
-    if (hashes == NULL) {
+    num_colons = 0;
+    for (i = 0; i < st.st_size; i++) {
+      if (file_data[i] == ':')
+        num_colons++;
+      else if (file_data[i] == '\n')
+        break;
+    }
+
+    if (num_colons == 0) {
+      file_format = HASH_FILE_FORMAT_PLAIN;
+      printf("Hash file contains plain hashes.\n");
+    } else if (num_colons == 6) {
+      file_format = HASH_FILE_FORMAT_PWDUMP;
+      printf("Hash file is pwdump format.\n");
+    } else {
+      fprintf(stderr, "Error: hash file format is not recognized (number of colons in first line is %u, instead of 0 or 6).\n", num_colons);
+      goto err;
+    }
+
+    usernames = calloc(max_num_hashes, sizeof(char *));
+    hashes = calloc(max_num_hashes, sizeof(char *));
+    if ((usernames == NULL) || (hashes == NULL)) {
       fprintf(stderr, "Error while allocating buffer for hashes.\n");
       goto err;
     }
@@ -1874,7 +1907,7 @@ int main(int ac, char **av) {
     /* Tokenize the hash file by line.  Store each hash in the array. */
     num_hashes = 0;
     line = strtok(file_data, "\n");
-    while (line) {
+    while (line && (num_hashes < max_num_hashes)) {
 
       /* Skip empty lines.  */
       if (strlen(line) > 0) {
@@ -1887,17 +1920,83 @@ int main(int ac, char **av) {
           if (line[strlen(line) - 1] == '\r')
             line[strlen(line) - 1] = '\0';
 
-          /* Ensure that hash is lowercase. */
-          str_to_lowercase(line);
+          if (file_format == HASH_FILE_FORMAT_PLAIN) {
+            /* Ensure that hash is lowercase. */
+            str_to_lowercase(line);
 
-	  hashes[num_hashes] = strdup(line);
-	  if (hashes[num_hashes] == NULL) {
-	    fprintf(stderr, "Error while allocating buffer for hashes.\n");
-	    goto err;
-	  }
-	  num_hashes++;
-	}
+            hashes[num_hashes] = strdup(line);
+            if (hashes[num_hashes] == NULL) {
+              fprintf(stderr, "Error while allocating buffer for hashes.\n");
+              goto err;
+            }
+            num_hashes++;
+          } else {  /* HASH_FILE_FORMAT_PWDUMP */
+            char *line_copy = strdup(line);
+            char *hash = NULL;
+            unsigned int line_copy_len = strlen(line_copy);
+            unsigned int hash_start = 0, hash_end = 0;
 
+
+            /* Get the username from position zero until the first colon. */
+            for (i = 0; i < line_copy_len; i++) {
+              if (line_copy[i] == ':') {
+                line_copy[i] = '\0';
+                usernames[num_hashes] = strdup(line_copy);
+                if (usernames[num_hashes] == NULL) {
+                  fprintf(stderr, "Error while allocating buffer for usernames.\n");
+                  goto err;
+                }
+                break;
+              }
+            }
+
+            /* Find the start and end positions of the hash, based on the number of colons. */
+            num_colons = 1;
+            hash_start = 0;
+            hash_end = 0;
+            for (i = i + 1; i < line_copy_len; i++) {
+              if (line_copy[i] == ':')
+                num_colons++;
+
+              if ((num_colons == 3) && (hash_start == 0))
+                hash_start = i + 1;
+              else if (num_colons == 4) {
+                hash_end = i;
+                break;
+              }
+            }
+
+            if ((hash_start == 0) || (hash_end == 0)) {
+              fprintf(stderr, "Error: failed to extract hash from line: [%s]\n", line);
+              goto err;
+            }
+
+            *(line_copy + hash_end) = '\0';
+            hash = line_copy + hash_start;
+            /*printf("Found hash at %u:%u: [%s]\n", hash_start, hash_end, hash);*/
+
+            /* Make sure the hash is 32 bytes. */
+            if (strlen(hash) != 32) {
+              fprintf(stderr, "Error: hash is length %zu instead of 32: [%s]\n", strlen(hash), hash);
+              goto err;
+            }
+
+            str_to_lowercase(hash);  /* Ensure hash is lowercase. */
+
+            if (strstr(pot_file_data, hash) != NULL) {
+              previously_cracked++;
+            } else {
+              hashes[num_hashes] = strdup(hash);
+              if (hashes[num_hashes] == NULL) {
+                fprintf(stderr, "Error while allocating buffer for hashes.\n");
+                goto err;
+              }
+              num_hashes++;
+            }
+            FREE(line_copy);
+
+          }
+        }
 	line = strtok(NULL, "\n");
       }
     }
@@ -1968,7 +2067,8 @@ int main(int ac, char **av) {
   for (i = 0; i < num_devices; i++) {
     args[i].hash_type = rt_params.hash_type;
     args[i].hash_name = rt_params.hash_name;
-    args[i].hash = NULL;  /* Filled in below. */
+    args[i].username = NULL;  /* Filled in below. */
+    args[i].hash = NULL;      /* Filled in below. */
     args[i].charset = validate_charset(rt_params.charset_name);
     args[i].charset_name = rt_params.charset_name;
     args[i].plaintext_len_min = rt_params.plaintext_len_min;
@@ -1986,8 +2086,10 @@ int main(int ac, char **av) {
   for (i = 0; i < num_hashes; i++) {
     printf("Pre-computing hash #%u: %s...\n", i + 1, hashes[i]);  fflush(stdout);
 
-    for (j = 0; j < num_devices; j++)
+    for (j = 0; j < num_devices; j++) {
+      args[j].username = usernames[i];
       args[j].hash = hashes[i];
+    }
 
     precompute_hash(num_devices, args, &ppi_head);
   }
@@ -2029,17 +2131,17 @@ int main(int ac, char **av) {
     printf(" %s* Crack Summary *%s\n\n", WHITEB, CLR);
     printf("   Of the %u hashes loaded, %u were cracked, or %.2f%%.\n\n", num_hashes, num_cracked, ((double)num_cracked / (double)num_hashes) * 100);
 
-    printf(" Results\n -------\n");
+    printf(" Results\n -------\n%s", GREENB);
     ppi_cur = ppi_head;
     while(ppi_cur != NULL) {
       if (ppi_cur->plaintext != NULL)
-	printf(" %s  %s\n", ppi_cur->hash, ppi_cur->plaintext);
+	printf(" %s  %s\n", (ppi_cur->username != NULL) ? ppi_cur->username : ppi_cur->hash, ppi_cur->plaintext);
 
       ppi_cur = ppi_cur->next;
     }
-    printf(" -------\n\n");
-    printf(" Results have been written in JTR format to:     %s\n", jtr_pot_filename);
-    printf(" Results have been written in hashcat format to: %s\n\n\n", hashcat_pot_filename);
+    printf("%s -------\n\n", CLR);
+    printf("%s Results have been written in JTR format to:     %s\n", WHITEB, jtr_pot_filename);
+    printf(" Results have been written in hashcat format to: %s%s\n\n\n", hashcat_pot_filename, CLR);
   }
 
   printf(" %s* Time Summary *%s\n\n      Precomputation: %s\n      I/O (parallel): %s\n           Searching: %s\n  False alarm checks: %s\n\n               Total: %s\n\n\n", WHITEB, CLR, time_precomp_str, time_io_str, time_searching_str, time_falsealarms_str, time_total_str);
@@ -2047,7 +2149,7 @@ int main(int ac, char **av) {
   printf(" %s* Statistics *%s\n\n          Number of tables processed: %u\n              Number of false alarms: %" QUOTE PRIu64"\n          Number of chains processed: %" QUOTE PRIu64"\n\n                Time spent per table: %s\n     False alarms checked per second: %" QUOTE ".1f\n\n         False alarms per no. chains: %.5f%%\n  Successful cracks per false alarms: %.5f%%\n  Successful cracks per total chains: %.8f%%\n\n\n", WHITEB, CLR, num_tables_processed, num_falsealarms, num_chains_processed, time_per_table_str, (double)num_falsealarms / time_falsealarms, ((double)num_falsealarms / (double)num_chains_processed) * 100.0, ((double)num_cracked / (double)num_falsealarms) * 100.0, ((double)num_cracked / (double)num_chains_processed) * 100.0);
 
   free_precomputed_and_potential_indices(&ppi_head);
-  free_loaded_hashes(hashes, &num_hashes);
+  free_loaded_hashes(usernames, hashes, &num_hashes);
   FREE(args);
   pthread_barrier_destroy(&barrier);
   return 0;
@@ -2056,7 +2158,7 @@ int main(int ac, char **av) {
   FCLOSE(f);
   FREE(file_data);
   free_precomputed_and_potential_indices(&ppi_head);
-  free_loaded_hashes(hashes, &num_hashes);
+  free_loaded_hashes(usernames, hashes, &num_hashes);
   FREE(args);
   pthread_barrier_destroy(&barrier);
   return -1;

@@ -1,4 +1,4 @@
-# Rainbow Crackalack v1.2
+# Rainbow Crackalack
 
 Author: [Joe Testa](https://www.positronsecurity.com/company/) ([@therealjoetesta](https://twitter.com/therealjoetesta))
 
@@ -49,9 +49,20 @@ The NVIDIA GTX & RTX lines of GPU hardware has been well-tested with the Rainbow
 
 However, other modern equipment can work just fine, so you don't necessarily need to purchase something new.  The NVIDIA GTX and AMD Vega product lines are still quite useful for cracking!
 
+## Windows Build
+
+A 64-bit Windows build can be achieved on an Ubuntu host machine by installing the following prerequisites:
+
+    # apt install mingw-w64 opencl-headers
+
+Then starting the build with:
+
+    # make clean; ./make_windows.sh
+
 ## Change Log
 ### v1.3-dev (???)
  - Added support for pwdump-formatted hash files.
+ - Added time estimates for precomputation phase.
  - Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.
  - Fixed bug in counting tables during lookup.
  - Added lookup colors.
@@ -66,14 +77,3 @@ However, other modern equipment can work just fine, so you don't necessarily nee
 
 ### v1.0 (June 11, 2019)
  - Initial revision.
-
-## Windows Build
-
-A 64-bit Windows build can be achieved on an Ubuntu host machine by installing the following prerequisites:
-
-    # apt install mingw-w64 opencl-headers
-
-Then starting the build with:
-
-    # make clean; ./make_windows.sh
-

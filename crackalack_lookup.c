@@ -152,6 +152,7 @@ void find_rt_params(char *dir, rt_parameters *rt_params);
 void free_loaded_hashes(char **usernames, char **hashes, unsigned int *num_hashes);
 void *host_thread_false_alarm(void *ptr);
 void *preloading_thread(void *ptr);
+void print_eta_precompute();
 cl_ulong *search_precompute_cache(char *index_data, unsigned int *num_indices, char *filename, unsigned int filename_size);
 void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args);
 void save_cracked_hash(precomputed_and_potential_indices *ppi, unsigned int hash_type);
@@ -219,8 +220,17 @@ pthread_cond_t condition_continue_loading_tables = PTHREAD_COND_INITIALIZER;
 /* The lock for the preloaded tables system. */
 pthread_mutex_t preloaded_tables_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/* The time at which precomputation begins. */
+struct timespec precompute_start_time = {0};
+
 /* The time at which table searching begins. */
 struct timespec search_start_time = {0};
+
+/* Number of hashes precomputed so far. */
+unsigned int num_hashes_precomputed = 0;
+
+/* Total number of hashes that will be precomputed. */
+unsigned int num_hashes_precomputed_total = 0;
 
 
 /* The total number of tables to preload in memory while binary searching and false
@@ -1015,9 +1025,11 @@ void precompute_hash(unsigned int num_devices, thread_args *args, precomputed_an
       }
     }
 
-    seconds_to_human_time(time_str, sizeof(time_str), get_elapsed(&start_time));
+    num_hashes_precomputed++;
 
+    seconds_to_human_time(time_str, sizeof(time_str), get_elapsed(&start_time));
     printf("  Completed in %s.\n", time_str);  fflush(stdout);
+    print_eta_precompute();
 
     /* Create one output array to hold all the results. */
     output = calloc(args[0].num_results * num_devices, sizeof(uint64_t));
@@ -1119,6 +1131,7 @@ void precompute_hash(unsigned int num_devices, thread_args *args, precomputed_an
     }
 
   } else {
+    num_hashes_precomputed_total--;
     printf("Using cached pre-computed indices for hash %s.\n", args->hash);  fflush(stdout);
   }
 
@@ -1339,16 +1352,36 @@ void *preloading_thread(void *ptr) {
 }
 
 
-/* Given the number of tables processed out of the total, prints the estimated time left to
+/* Given the number of hashes processed out of the total, prints the estimated time left to
  * completion. */
-void print_eta(unsigned int num_tables_processed, unsigned int num_tables_total) {
-  double seconds_per_table = (double)(get_elapsed(&search_start_time) / (double)num_tables_processed);
-  unsigned int num_tables_left = num_tables_total - num_tables_processed;
-  unsigned int num_seconds_left = num_tables_left * seconds_per_table;
+void print_eta_precompute() {
   char eta_str[64] = {0};
 
+  strncpy(eta_str, "Unknown", sizeof(eta_str) - 1);
+  if ((num_hashes_precomputed > 0) && (num_hashes_precomputed_total >= num_hashes_precomputed)) {
+    double seconds_per_hash = (double)(get_elapsed(&precompute_start_time) / (double)num_hashes_precomputed);
+    unsigned int num_hashes_left = num_hashes_precomputed_total - num_hashes_precomputed;
+    unsigned int num_seconds_left = num_hashes_left * seconds_per_hash;
 
-  seconds_to_human_time(eta_str, sizeof(eta_str), num_seconds_left);
+    seconds_to_human_time(eta_str, sizeof(eta_str), num_seconds_left);
+  }
+  printf("  Estimated time to complete pre-computation (at most): %s\n\n", eta_str); fflush(stdout);
+}
+
+
+/* Given the number of tables processed out of the total, prints the estimated time left to
+ * completion. */
+void print_eta_search(unsigned int num_tables_processed, unsigned int num_tables_total) {
+  char eta_str[64] = {0};
+
+  strncpy(eta_str, "Unknown", sizeof(eta_str) - 1);
+  if ((num_tables_processed > 0) && (num_tables_total >= num_tables_processed)) {
+    double seconds_per_table = (double)(get_elapsed(&search_start_time) / (double)num_tables_processed);
+    unsigned int num_tables_left = num_tables_total - num_tables_processed;
+    unsigned int num_seconds_left = num_tables_left * seconds_per_table;
+
+    seconds_to_human_time(eta_str, sizeof(eta_str), num_seconds_left);
+  }
   printf("  Estimated time remaining (at most): %s\n\n", eta_str); fflush(stdout);
 }
 
@@ -1709,7 +1742,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
     check_false_alarms(ppi, args);
 
     printf("  Table fully processed in %.1f seconds.\n", get_elapsed(&start_time_table)); fflush(stdout);
-    print_eta(num_tables_processed, total_tables);
+    print_eta_search(num_tables_processed, total_tables);
 
     /* We checked the potential matches above, so there's nothing else to do with
      * them. */
@@ -1741,7 +1774,6 @@ int main(int ac, char **av) {
   FILE *f = NULL;
   struct stat st = {0};
   thread_args *args = NULL;
-  struct timespec start_time = {0};
   char time_precomp_str[64] = {0}, time_io_str[64] = {0}, time_searching_str[64] = {0}, time_falsealarms_str[64] = {0}, time_total_str[64] = {0}, time_per_table_str[64] = {0};
 
   rt_parameters rt_params = {0};
@@ -1977,7 +2009,7 @@ int main(int ac, char **av) {
 
             /* Make sure the hash is 32 bytes. */
             if (strlen(hash) != 32) {
-              fprintf(stderr, "Error: hash is length %zu instead of 32: [%s]\n", strlen(hash), hash);
+              fprintf(stderr, "Error: hash is length %u instead of 32: [%s]\n", (unsigned int)strlen(hash), hash);
               goto err;
             }
 
@@ -2084,7 +2116,8 @@ int main(int ac, char **av) {
     get_device_uint(args[i].gpu.device, CL_DEVICE_MAX_COMPUTE_UNITS, &(args[i].gpu.num_work_units));
   }
 
-  start_timer(&start_time);
+  num_hashes_precomputed_total = num_hashes;
+  start_timer(&precompute_start_time);
   for (i = 0; i < num_hashes; i++) {
     printf("Pre-computing hash #%u: %s...\n", i + 1, hashes[i]);  fflush(stdout);
 
@@ -2095,7 +2128,7 @@ int main(int ac, char **av) {
 
     precompute_hash(num_devices, args, &ppi_head);
   }
-  time_precomp = get_elapsed(&start_time);
+  time_precomp = get_elapsed(&precompute_start_time);
   seconds_to_human_time(time_precomp_str, sizeof(time_precomp_str), time_precomp);
   printf("\nPre-computation finished in %s.\n\n", time_precomp_str);  fflush(stdout);
 

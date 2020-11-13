@@ -54,6 +54,7 @@
 #define VERBOSE 1
 #define PRECOMPUTE_KERNEL_PATH "precompute.cl"
 #define PRECOMPUTE_NTLM8_KERNEL_PATH "precompute_ntlm8.cl"
+#define PRECOMPUTE_NTLM9_KERNEL_PATH "precompute_ntlm9.cl"
 #define FALSE_ALARM_KERNEL_PATH "false_alarm_check.cl"
 #define FALSE_ALARM_NTLM8_KERNEL_PATH "false_alarm_check_ntlm8.cl"
 
@@ -194,9 +195,9 @@ size_t user_provided_gws = 0;
  * a cl_ulong (8 bytes). */
 uint64_t total_precomputed_indices_loaded = 0;
 
-/* Set to 1 if the NTLM8 message was printed.  This prevents console spam. */
-unsigned int printed_precompute_ntlm8_message = 0;
-unsigned int printed_false_alarm_ntlm8_message = 0;
+/* Set to 1 if the NTLM8/9 message was printed.  This prevents console spam. */
+unsigned int printed_precompute_optimized_message = 0;
+unsigned int printed_false_alarm_optimized_message = 0;
 
 /* The total number of tables in all subdirectories of the directory given
  * by the user. */
@@ -661,9 +662,9 @@ void *host_thread_false_alarm(void *ptr) {
   if (is_ntlm8(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
     kernel_path = FALSE_ALARM_NTLM8_KERNEL_PATH;
     kernel_name = "false_alarm_check_ntlm8";
-    if ((args->gpu.device_number == 0) && (printed_false_alarm_ntlm8_message == 0)) { /* Only the first thread prints this, and only prints it once. */
+    if ((args->gpu.device_number == 0) && (printed_false_alarm_optimized_message == 0)) { /* Only the first thread prints this, and only prints it once. */
       printf("\nNote: optimized NTLM8 kernel will be used for false alarm checks.\n\n"); fflush(stdout);
-      printed_false_alarm_ntlm8_message = 1;
+      printed_false_alarm_optimized_message = 1;
     }
   }
 
@@ -850,9 +851,16 @@ void *host_thread_precompute(void *ptr) {
   if (is_ntlm8(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
     kernel_path = PRECOMPUTE_NTLM8_KERNEL_PATH;
     kernel_name = "precompute_ntlm8";
-    if ((args->gpu.device_number == 0) && (printed_precompute_ntlm8_message == 0)) { /* Only the first thread prints this, and only prints it once. */
+    if ((args->gpu.device_number == 0) && (printed_precompute_optimized_message == 0)) { /* Only the first thread prints this, and only prints it once. */
       printf("\nNote: optimized NTLM8 kernel will be used for precomputation.\n\n"); fflush(stdout);
-      printed_precompute_ntlm8_message = 1;
+      printed_precompute_optimized_message = 1;
+    }
+  } else if (is_ntlm9(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
+    kernel_path = PRECOMPUTE_NTLM9_KERNEL_PATH;
+    kernel_name = "precompute_ntlm9";
+    if ((args->gpu.device_number == 0) && (printed_precompute_optimized_message == 0)) { /* Only the first thread prints this, and only prints it once. */
+      printf("\nNote: optimized NTLM9 kernel will be used for precomputation.\n\n"); fflush(stdout);
+      printed_precompute_optimized_message = 1;
     }
   }
 

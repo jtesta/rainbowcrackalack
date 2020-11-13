@@ -61,6 +61,7 @@ Then starting the build with:
 
 ## Change Log
 ### v1.3-dev (???)
+ - Improved speed of NTLM9 precomputation by 90%!
  - Fixed lookup on AMD ROCm.
  - Added support for pwdump-formatted hash files.
  - Added time estimates for precomputation phase.

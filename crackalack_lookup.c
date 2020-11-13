@@ -57,6 +57,7 @@
 #define PRECOMPUTE_NTLM9_KERNEL_PATH "precompute_ntlm9.cl"
 #define FALSE_ALARM_KERNEL_PATH "false_alarm_check.cl"
 #define FALSE_ALARM_NTLM8_KERNEL_PATH "false_alarm_check_ntlm8.cl"
+#define FALSE_ALARM_NTLM9_KERNEL_PATH "false_alarm_check_ntlm9.cl"
 
 #define HASH_FILE_FORMAT_PLAIN 1
 #define HASH_FILE_FORMAT_PWDUMP 2
@@ -664,6 +665,13 @@ void *host_thread_false_alarm(void *ptr) {
     kernel_name = "false_alarm_check_ntlm8";
     if ((args->gpu.device_number == 0) && (printed_false_alarm_optimized_message == 0)) { /* Only the first thread prints this, and only prints it once. */
       printf("\nNote: optimized NTLM8 kernel will be used for false alarm checks.\n\n"); fflush(stdout);
+      printed_false_alarm_optimized_message = 1;
+    }
+  } else if (is_ntlm9(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
+    kernel_path = FALSE_ALARM_NTLM9_KERNEL_PATH;
+    kernel_name = "false_alarm_check_ntlm9";
+    if ((args->gpu.device_number == 0) && (printed_false_alarm_optimized_message == 0)) { /* Only the first thread prints this, and only prints it once. */
+      printf("\nNote: optimized NTLM9 kernel will be used for false alarm checks.\n\n"); fflush(stdout);
       printed_false_alarm_optimized_message = 1;
     }
   }

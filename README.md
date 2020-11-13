@@ -61,6 +61,7 @@ Then starting the build with:
 
 ## Change Log
 ### v1.3-dev (???)
+ - Fixed lookup on AMD ROCm.
  - Added support for pwdump-formatted hash files.
  - Added time estimates for precomputation phase.
  - Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.

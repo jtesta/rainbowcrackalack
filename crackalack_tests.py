@@ -270,7 +270,9 @@ def run_lookup(rt_dir, password_hash, pot_filepath=None):
         so = None
         se = None
 
-    subprocess.run(args, stdout=so, stderr=se)
+    proc = subprocess.run(args, stdout=so, stderr=se)
+    if proc.returncode != 0:
+        print("Lookup failed with exit code: %d." % proc.returncode)
 
 
 # Do the lookup tests.

@@ -9,7 +9,7 @@
 #define CL_RW CL_MEM_READ_WRITE
 
 /* Default build options for kernels. */
-#define DEFAULT_BUILD_OPTIONS "-Werror -I. -ICL"
+#define DEFAULT_BUILD_OPTIONS "-I. -ICL"
 
 /* Enable USE_DES_BITSLICE to use the DES bitslice code from JohnTheRipper.  At this time, it somehow runs at half the speed of unoptimized DES on NVIDIA.  Anyone else want to look into what's going on? */
 /*#define USE_DES_BITSLICE 1*/

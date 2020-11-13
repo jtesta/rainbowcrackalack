@@ -911,7 +911,7 @@ void *host_thread_precompute(void *ptr) {
   CLCREATEARG(4, plaintext_len_min_buffer, CL_RO, args->plaintext_len_min, sizeof(cl_uint));
   CLCREATEARG(5, plaintext_len_max_buffer, CL_RO, args->plaintext_len_max, sizeof(cl_uint));
   CLCREATEARG(6, table_index_buffer, CL_RO, args->table_index, sizeof(cl_uint));
-  CLCREATEARG(7, chain_len_buffer, CL_RO, args->chain_len, sizeof(cl_uint));
+  CLCREATEARG(7, chain_len_buffer, CL_RO, args->chain_len, sizeof(cl_ulong));
   CLCREATEARG(8, device_num_buffer, CL_RO, gpu->device_number, sizeof(cl_uint));
   CLCREATEARG(9, total_devices_buffer, CL_RO, args->total_devices, sizeof(cl_uint));
   CLCREATEARG_ARRAY(11, output_block_buffer, CL_WO, output_block, output_block_len * sizeof(cl_ulong));
@@ -1087,6 +1087,16 @@ void precompute_hash(unsigned int num_devices, thread_args *args, precomputed_an
 
       FREE(output);
       output = tmp;
+    }
+
+    /* Ensure we didn't get all zeros. */
+    for (k = 0; k < output_index; k++)
+      if (output[k] != 0)
+	break;
+
+    if (k == output_index) {
+      fprintf(stderr, "Error: all zeros in precomputation!\n");
+      exit(-1);
     }
 
     /* Search for the first unused filename in the space of rcracki.precalc.[0-1048576]. */

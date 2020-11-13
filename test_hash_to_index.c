@@ -18,11 +18,11 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <CL/cl.h>
+
+#include "opencl_setup.h"
 
 #include "cpu_rt_functions.h"
 #include "misc.h"
-#include "opencl_setup.h"
 #include "shared.h"
 #include "test_shared.h"
 #include "test_hash_to_index.h"

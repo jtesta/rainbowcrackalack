@@ -29,7 +29,8 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-#include <CL/cl.h>
+
+#include "opencl_setup.h"
 
 #include "charset.h"
 #include "clock.h"
@@ -38,7 +39,6 @@
 #include "gws.h"
 #include "hash_validate.h"
 #include "misc.h"
-#include "opencl_setup.h"
 #include "shared.h"
 #include "terminal_color.h"
 #include "verify.h"

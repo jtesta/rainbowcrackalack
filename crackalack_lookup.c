@@ -37,14 +37,14 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <CL/cl.h>
+
+#include "opencl_setup.h"
 
 #include "charset.h"
 #include "clock.h"
 #include "cpu_rt_functions.h"
 #include "hash_validate.h"
 #include "misc.h"
-#include "opencl_setup.h"
 #include "rtc_decompress.h"
 #include "shared.h"
 #include "test_shared.h"  /* TODO: move hex_to_bytes() elsewhere. */
@@ -1842,9 +1842,11 @@ int main(int ac, char **av) {
   /* The default rainbowcrackalack.pot file can be overridden with a third argument.
    * This is undocumented since its probably only useful for automated testing. */
   if (ac == 4) {
-    strncpy(jtr_pot_filename, av[3], sizeof(jtr_pot_filename));
-    strncpy(hashcat_pot_filename, av[3], sizeof(hashcat_pot_filename));
-    strncat(hashcat_pot_filename, ".hashcat", sizeof(hashcat_pot_filename));
+    strncpy(jtr_pot_filename, av[3], sizeof(jtr_pot_filename) - 1);
+    jtr_pot_filename[sizeof(jtr_pot_filename) - 1] = '\0';
+    strncpy(hashcat_pot_filename, av[3], sizeof(hashcat_pot_filename) - 1);
+    hashcat_pot_filename[sizeof(hashcat_pot_filename) - 1] = '\0';
+    strncat(hashcat_pot_filename, ".hashcat", sizeof(hashcat_pot_filename) - 1);
   } else if (ac == 5)
     user_provided_gws = (unsigned int)atoi(av[4]);
 

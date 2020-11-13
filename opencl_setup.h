@@ -1,6 +1,9 @@
 #ifndef _OPENCL_SETUP_H
 #define _OPENCL_SETUP_H
 
+#define CL_TARGET_OPENCL_VERSION 200  /* OpenCL 2.0 */
+#include <CL/cl.h>
+
 #define MAX_NUM_PLATFORMS 32
 #define MAX_NUM_DEVICES 32
 

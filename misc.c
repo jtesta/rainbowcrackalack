@@ -24,10 +24,11 @@
 #include <sys/sysinfo.h>
 #endif
 
-#include <CL/cl.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
+
+#include "opencl_setup.h"
 
 #include "charset.h"
 #include "misc.h"
@@ -247,9 +248,9 @@ void parse_rt_params(rt_parameters *rt_params, char *rt_filename_orig) {
   hpos = strrchr(rt_filename_orig, '/');
 #endif
   if (hpos != NULL)
-    strncpy(rt_filename, hpos + 1, sizeof(rt_filename));
+    strncpy(rt_filename, hpos + 1, sizeof(rt_filename) - 1);
   else
-    strncpy(rt_filename, rt_filename_orig, sizeof(rt_filename));
+    strncpy(rt_filename, rt_filename_orig, sizeof(rt_filename) - 1);
 
   /* Ensure that the filename ends in .rt or .rtc. */
   if (!str_ends_with(rt_filename, ".rt") && !str_ends_with(rt_filename, ".rtc"))
@@ -272,8 +273,11 @@ void parse_rt_params(rt_parameters *rt_params, char *rt_filename_orig) {
 
 
       *upos = '\0';
-      strncpy(rt_params->hash_name, hash_name_ptr, sizeof(rt_params->hash_name));
-      strncpy(rt_params->charset_name, charset_name_ptr, sizeof(rt_params->charset_name));
+      strncpy(rt_params->hash_name, hash_name_ptr, sizeof(rt_params->hash_name) - 1);
+      rt_params->hash_name[sizeof(rt_params->hash_name) - 1] = '\0';
+
+      strncpy(rt_params->charset_name, charset_name_ptr, sizeof(rt_params->charset_name) - 1);
+      rt_params->charset_name[sizeof(rt_params->charset_name) - 1] = '\0';
 
       /* Now parse the unsigned integers. */
       if (sscanf(suffix, "%u-%u_%u_%ux%u_%u", &rt_params->plaintext_len_min, &rt_params->plaintext_len_max, &rt_params->table_index, &rt_params->chain_len, &rt_params->num_chains, &rt_params->table_part) == 6) {

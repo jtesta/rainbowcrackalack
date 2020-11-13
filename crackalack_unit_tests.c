@@ -20,9 +20,9 @@
 #endif
 #include <stdio.h>
 #include <string.h>
-#include <CL/cl.h>
 
 #include "opencl_setup.h"
+
 #include "shared.h"
 #include "test_chain.h"
 #include "test_chain_ntlm9.h"

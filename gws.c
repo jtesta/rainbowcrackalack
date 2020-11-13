@@ -1,8 +1,8 @@
-#include <CL/cl.h>
 #include <string.h>
 
-#include "gws.h"
 #include "opencl_setup.h"
+
+#include "gws.h"
 
 
 /* Given a GPU device, returns the optimal GWS setting (found through manual experimentation).  Returns 0 if the optimal setting on the device is unknown. */

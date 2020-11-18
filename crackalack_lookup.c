@@ -55,12 +55,20 @@
 #define PRECOMPUTE_KERNEL_PATH "precompute.cl"
 #define PRECOMPUTE_NTLM8_KERNEL_PATH "precompute_ntlm8.cl"
 #define PRECOMPUTE_NTLM9_KERNEL_PATH "precompute_ntlm9.cl"
+#define BINARY_SEARCH_KERNEL_PATH "binary_search.cl"
 #define FALSE_ALARM_KERNEL_PATH "false_alarm_check.cl"
 #define FALSE_ALARM_NTLM8_KERNEL_PATH "false_alarm_check_ntlm8.cl"
 #define FALSE_ALARM_NTLM9_KERNEL_PATH "false_alarm_check_ntlm9.cl"
 
 #define HASH_FILE_FORMAT_PLAIN 1
 #define HASH_FILE_FORMAT_PWDUMP 2
+
+#define BINARY_SEARCH_BENCHMARK_NUM_SAMPLE 5
+#define BINARY_SEARCH_MODE_BENCHMARK_CPU 0
+#define BINARY_SEARCH_MODE_BENCHMARK_GPU 1
+#define BINARY_SEARCH_MODE_CPU_OPTIMAL 2
+#define BINARY_SEARCH_MODE_GPU_OPTIMAL 3
+
 
 
 /* Struct to form a linked list of precomputed end indices, and potential start indices (which are usually false alarms). */
@@ -130,8 +138,16 @@ typedef struct {
   cl_ulong *rainbow_table;
   unsigned int num_chains;
   precomputed_and_potential_indices *ppi_head;
+
+  /* For CPU threads. */
   unsigned int thread_number;
   unsigned int total_threads;
+
+  /* For GPU threads. */
+  unsigned int num_devices;
+  cl_ulong *precomputed_end_indices;
+  unsigned int num_precomputed_end_indices;
+  gpu_dev gpu;
 } search_thread_args;
 
 
@@ -156,7 +172,7 @@ void *host_thread_false_alarm(void *ptr);
 void *preloading_thread(void *ptr);
 void print_eta_precompute();
 cl_ulong *search_precompute_cache(char *index_data, unsigned int *num_indices, char *filename, unsigned int filename_size);
-void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args);
+void search_tables(cl_device_id *devices, unsigned int num_devices, unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args);
 void save_cracked_hash(precomputed_and_potential_indices *ppi, unsigned int hash_type);
 
 
@@ -233,6 +249,15 @@ unsigned int num_hashes_precomputed = 0;
 
 /* Total number of hashes that will be precomputed. */
 unsigned int num_hashes_precomputed_total = 0;
+
+/* One of the BINARY_SEARCH_MODE_* flags. */
+unsigned int binary_search_mode = BINARY_SEARCH_MODE_BENCHMARK_CPU;
+
+unsigned binary_search_benchmark_cpu_num_completed = 0;
+unsigned binary_search_benchmark_gpu_num_completed = 0;
+
+double binary_search_benchmark_cpu_total_time = 0.0;
+double binary_search_benchmark_gpu_total_time = 0.0;
 
 
 /* The total number of tables to preload in memory while binary searching and false
@@ -1423,7 +1448,7 @@ void print_usage_and_exit(char *prog_name, int exit_code) {
 
 
 /* Helper function for rt_binary_search(). */
-unsigned int _rt_binary_search(cl_ulong *rainbow_table, unsigned int low, unsigned int high, cl_ulong search_index, cl_ulong *start) {
+unsigned int _cpu_binary_search(cl_ulong *rainbow_table, unsigned int low, unsigned int high, cl_ulong search_index, cl_ulong *start) {
   unsigned int chain = 0;
 
 
@@ -1439,16 +1464,16 @@ unsigned int _rt_binary_search(cl_ulong *rainbow_table, unsigned int low, unsign
   } else {
     chain = ((high - low) / 2) + low;
     if (search_index >= rainbow_table[(chain * 2) + 1])
-      return _rt_binary_search(rainbow_table, chain, high, search_index, start);
+      return _cpu_binary_search(rainbow_table, chain, high, search_index, start);
     else
-      return _rt_binary_search(rainbow_table, low, chain, search_index, start);
+      return _cpu_binary_search(rainbow_table, low, chain, search_index, start);
   }
 
   return 0;
 }
 
 
-void *rt_binary_search_thread(void *ptr) {
+void *cpu_binary_search_thread(void *ptr) {
   search_thread_args *args = (search_thread_args *)ptr;
   precomputed_and_potential_indices *ppi_cur = args->ppi_head;
   unsigned int i = 0;
@@ -1458,7 +1483,7 @@ void *rt_binary_search_thread(void *ptr) {
   while (ppi_cur != NULL) {
     if (ppi_cur->plaintext == NULL) { /* If this hash isn't cracked yet... */
       for (i = 0 + args->thread_number; i < ppi_cur->num_precomputed_end_indices; i += args->total_threads) {
-	if (_rt_binary_search(args->rainbow_table, 0, args->num_chains, ppi_cur->precomputed_end_indices[i], &start)) {
+	if (_cpu_binary_search(args->rainbow_table, 0, args->num_chains, ppi_cur->precomputed_end_indices[i], &start)) {
 	  add_potential_start_index_and_position(ppi_cur, start, i);
 	}
       }
@@ -1471,56 +1496,260 @@ void *rt_binary_search_thread(void *ptr) {
 }
 
 
+void *gpu_binary_search_thread(void *ptr) {
+  search_thread_args *args = (search_thread_args *)ptr;
+  gpu_dev *gpu = &(args->gpu);
+  cl_context context = NULL;
+  cl_command_queue queue = NULL;
+  cl_kernel kernel = NULL;
+  int err = 0;
+  size_t gws = 0;
+  char *kernel_path = BINARY_SEARCH_KERNEL_PATH, *kernel_name = "binary_search";
+  cl_mem rainbow_table_buffer = NULL, num_chains_buffer = NULL, precomputed_end_indices_buffer = NULL, num_precomputed_end_indices_buffer = NULL, output_buffer = NULL, work_load_buffer = NULL;
+  cl_ulong *rainbow_table = args->rainbow_table, *precomputed_end_indices = args->precomputed_end_indices, *output = NULL;
+  unsigned int num_chains = args->num_chains, num_precomputed_end_indices = args->num_precomputed_end_indices, output_len = 0;
+  unsigned int work_load = 0;
+
+
+  /* Load the kernel. */
+  gpu->context = CLCREATECONTEXT(context_callback, &(gpu->device));
+  gpu->queue = CLCREATEQUEUE(gpu->context, gpu->device);
+  load_kernel(gpu->context, 1, &(gpu->device), kernel_path, kernel_name, &(gpu->program), &(gpu->kernel), 0);
+
+  /* These variables are set so the CLCREATEARG* macros work correctly. */
+  context = gpu->context;
+  queue = gpu->queue;
+  kernel = gpu->kernel;
+
+  work_load = 450000 / 4;  /* Different sizes of work load don't seem to make a dent in the long GPU searching times, sadly... */
+  gws = num_precomputed_end_indices / work_load;
+
+  /* Currently, with the code below commented out, the searching isn't 100% complete, and some hashes will be missed.  However, enabling this code causes a kernel crash, and debugging it isn't worth the effort if the GPU search time isn't close to beating the CPU time... */
+  /*if (num_precomputed_end_indices % work_load != 0)
+    gws++;*/
+
+  output_len = num_precomputed_end_indices;
+  output = calloc(output_len, sizeof(cl_ulong));
+  if (output == NULL) {
+    fprintf(stderr, "Failed to create buffer for output.\n"); fflush(stderr);
+    exit(-1);
+  }
+
+  CLCREATEARG_ARRAY(0, rainbow_table_buffer, CL_RO, rainbow_table, num_chains * sizeof(cl_ulong) * 2);
+  CLCREATEARG(1, num_chains_buffer, CL_RO, num_chains, sizeof(cl_uint));
+  CLCREATEARG_ARRAY(2, precomputed_end_indices_buffer, CL_RO, precomputed_end_indices, num_precomputed_end_indices * sizeof(cl_ulong));
+  CLCREATEARG(3, num_precomputed_end_indices_buffer, CL_RO, num_precomputed_end_indices, sizeof(cl_uint));
+  CLCREATEARG(4, work_load_buffer, CL_RO, work_load, sizeof(cl_uint));
+  CLCREATEARG_ARRAY(5, output_buffer, CL_WO, output, output_len * sizeof(cl_ulong));  /* TODO: don't send an empty buffer; just tell the device to allocate it. */
+
+  if (is_amd_gpu) {
+    int barrier_ret = pthread_barrier_wait(&barrier);
+    if ((barrier_ret != 0) && (barrier_ret != PTHREAD_BARRIER_SERIAL_THREAD)) {
+      fprintf(stderr, "pthread_barrier_wait() failed!\n"); fflush(stderr);
+      exit(-1);
+    }
+  }
+
+  /* Run the kernel and wait for it to finish. */
+  CLRUNKERNEL(gpu->queue, gpu->kernel, &gws);
+  CLFLUSH(gpu->queue);
+  CLWAIT(gpu->queue);
+
+  /* Read the results. */
+  CLREADBUFFER(output_buffer, output_len * sizeof(cl_ulong), output);
+
+  for (unsigned i = 0; i < output_len; i++) {
+    cl_ulong potential_start = output[i];
+
+    /* The kernel found a potential start index... */
+    if (potential_start != 0) {
+      unsigned int continue_ppi_lookup = 1;
+      precomputed_and_potential_indices *ppi_cur = args->ppi_head;
+      cl_ulong matched_end = precomputed_end_indices[i];
+
+      /* Unfortunately, we need to traverse all of out precomputed end points to find which this belongs to. */
+      while ((ppi_cur != NULL) && continue_ppi_lookup) {
+	if (ppi_cur->plaintext == NULL) { /* If this hash isn't cracked yet... */
+	  for (unsigned j = 0; (j < ppi_cur->num_precomputed_end_indices) && continue_ppi_lookup; j++) {
+	    /* We finally found the end index in the precompute cache, and thus, it's index (j). */
+	    if (ppi_cur->precomputed_end_indices[j] == matched_end) {
+	      add_potential_start_index_and_position(ppi_cur, potential_start, j);
+	      continue_ppi_lookup = 0;
+	    }
+	  }
+	}
+	ppi_cur = ppi_cur->next;
+      }
+    }
+  }
+
+  FREE(output);
+
+  CLFREEBUFFER(rainbow_table_buffer);
+  CLFREEBUFFER(num_chains_buffer);
+  CLFREEBUFFER(precomputed_end_indices_buffer);
+  CLFREEBUFFER(num_precomputed_end_indices_buffer);
+  CLFREEBUFFER(work_load_buffer);
+  CLFREEBUFFER(output_buffer);
+
+  CLRELEASEKERNEL(gpu->kernel);
+  CLRELEASEPROGRAM(gpu->program);
+  CLRELEASEQUEUE(gpu->queue);
+  CLRELEASECONTEXT(gpu->context);
+
+  pthread_exit(NULL);
+  return NULL;
+}
+
+
 /* Rainbow table binary search.  Searches a table's end indices for any matches with
  * precomputed end indices.  If/when matches are found, the corresponding start indices
  * are added to the precomputed_and_potential_indices's potential_start_indices
  * array. */
-void rt_binary_search(cl_ulong *rainbow_table, unsigned int num_chains, precomputed_and_potential_indices *ppi_head) {
+void rt_binary_search(thread_args *_targs, cl_ulong *rainbow_table, unsigned int num_chains, precomputed_and_potential_indices *ppi_head) {
   struct timespec start_time_searching = {0};
   char time_searching_str[64] = {0};
   unsigned int num_threads = get_num_cpu_cores();
   pthread_t *threads = NULL;
   search_thread_args *args = NULL;
-  unsigned int i = 0;
+  cl_ulong *precomputed_end_indices = NULL;
+  unsigned int i = 0, j = 0;
   double s_time = 0;
 
 
-  start_timer(&start_time_searching);
-  args = calloc(num_threads, sizeof(search_thread_args));
-  threads = calloc(num_threads, sizeof(pthread_t));
-  if ((args == NULL) || (threads == NULL)) {
-    fprintf(stderr, "Failed to create thread/args for searching.\n");
-    exit(-1);
-  }
-
   printf("  Searching table for matching endpoints...\n");  fflush(stdout);
+  start_timer(&start_time_searching);
 
-  for (i = 0; i < num_threads; i++) {
-    args[i].thread_number = i;
-    args[i].total_threads = num_threads;
-    args[i].rainbow_table = rainbow_table;
-    args[i].num_chains = num_chains;
-    args[i].ppi_head = ppi_head;
+  /* Hard-code GPU mode for now... */
+  binary_search_mode = BINARY_SEARCH_MODE_GPU_OPTIMAL;
 
-    if (pthread_create(&(threads[i]), NULL, &rt_binary_search_thread, &(args[i]))) {
-      perror("Failed to create thread");
+  if ((binary_search_mode == BINARY_SEARCH_MODE_BENCHMARK_CPU) || (binary_search_mode == BINARY_SEARCH_MODE_CPU_OPTIMAL)) {
+    args = calloc(num_threads, sizeof(search_thread_args));
+    threads = calloc(num_threads, sizeof(pthread_t));
+    if ((args == NULL) || (threads == NULL)) {
+      fprintf(stderr, "Failed to create thread/args for searching.\n");
       exit(-1);
     }
-  }
 
-  /* Wait for all threads to finish. */
-  for (i = 0; i < num_threads; i++) {
-    if (pthread_join(threads[i], NULL) != 0) {
-      perror("Failed to join with thread");
+    for (i = 0; i < num_threads; i++) {
+      args[i].thread_number = i;
+      args[i].total_threads = num_threads;
+      args[i].rainbow_table = rainbow_table;
+      args[i].num_chains = num_chains;
+      args[i].ppi_head = ppi_head;
+
+      if (pthread_create(&(threads[i]), NULL, &cpu_binary_search_thread, &(args[i]))) {
+	perror("Failed to create thread");
+	exit(-1);
+      }
+    }
+
+    /* Wait for all threads to finish. */
+    for (i = 0; i < num_threads; i++) {
+      if (pthread_join(threads[i], NULL) != 0) {
+	perror("Failed to join with thread");
+	exit(-1);
+      }
+    }
+
+  } else if ((binary_search_mode == BINARY_SEARCH_MODE_BENCHMARK_GPU) || (binary_search_mode == BINARY_SEARCH_MODE_GPU_OPTIMAL)) {
+    precomputed_and_potential_indices *ppi_cur = ppi_head;
+    unsigned int num_precomputed_end_indices = 0;
+    unsigned int total_devices = 0;
+
+
+    total_devices = _targs[0].total_devices;
+    num_threads = total_devices;
+
+    /* Count the total number of precomputed end indices we need to search for. */
+    while (ppi_cur != NULL) {
+      if (ppi_cur->plaintext == NULL) { /* If this hash isn't cracked yet... */
+	num_precomputed_end_indices += ppi_cur->num_precomputed_end_indices;
+      }
+      ppi_cur = ppi_cur->next;
+    }
+
+    args = calloc(total_devices, sizeof(search_thread_args));
+    threads = calloc(total_devices, sizeof(pthread_t));
+    precomputed_end_indices = calloc(num_precomputed_end_indices, sizeof(cl_ulong));
+    if ((args == NULL) || (threads == NULL) || (precomputed_end_indices == NULL)) {
+      fprintf(stderr, "Failed to create thread/args for searching.\n");
       exit(-1);
+    }
+
+    /* Create a buffer with all the precomputed end indices. */
+    ppi_cur = ppi_head;
+    i = 0;
+    while (ppi_cur != NULL) {
+      if (ppi_cur->plaintext == NULL) { /* If this hash isn't cracked yet... */
+	for (j = 0; j < ppi_cur->num_precomputed_end_indices; i++, j++)
+	  precomputed_end_indices[i] = ppi_cur->precomputed_end_indices[j];
+      }
+      ppi_cur = ppi_cur->next;
+    }
+
+    for (i = 0; i < total_devices; i++) {
+      args[i].num_devices = total_devices;
+      args[i].rainbow_table = rainbow_table;
+      args[i].num_chains = num_chains;
+      args[i].precomputed_end_indices = precomputed_end_indices;
+      args[i].num_precomputed_end_indices = num_precomputed_end_indices;
+      memcpy(&args[i].gpu, &_targs[i].gpu, sizeof(gpu_dev));
+      args[i].ppi_head = ppi_head;
+      get_device_uint(args[i].gpu.device, CL_DEVICE_MAX_COMPUTE_UNITS, &(args[i].gpu.num_work_units));
+      if (pthread_create(&(threads[i]), NULL, &gpu_binary_search_thread, &(args[i]))) {
+	perror("Failed to create thread");
+	exit(-1);
+      }
+    }
+
+    /* Wait for all threads to finish. */
+    for (i = 0; i < total_devices; i++) {
+      if (pthread_join(threads[i], NULL) != 0) {
+	perror("Failed to join with thread");
+	exit(-1);
+      }
     }
   }
 
   s_time = get_elapsed(&start_time_searching);
+  if (binary_search_mode == BINARY_SEARCH_MODE_BENCHMARK_CPU) {
+    binary_search_benchmark_cpu_num_completed++;
+    binary_search_benchmark_cpu_total_time += s_time;
+
+    if (binary_search_benchmark_cpu_num_completed == BINARY_SEARCH_BENCHMARK_NUM_SAMPLE) {
+      char avg_time_str[128] = {0};
+
+      seconds_to_human_time(avg_time_str, sizeof(avg_time_str), binary_search_benchmark_cpu_total_time / binary_search_benchmark_cpu_num_completed);
+      printf("  CPU binary search benchmark (using %u threads): %u tables searched in %s.\n", num_threads, BINARY_SEARCH_BENCHMARK_NUM_SAMPLE, avg_time_str);  fflush(stdout);
+
+      binary_search_mode = BINARY_SEARCH_MODE_BENCHMARK_GPU;
+    }
+  } else if (binary_search_mode == BINARY_SEARCH_MODE_BENCHMARK_GPU) {
+    binary_search_benchmark_gpu_num_completed++;
+    binary_search_benchmark_gpu_total_time += s_time;
+
+    if (binary_search_benchmark_gpu_num_completed == BINARY_SEARCH_BENCHMARK_NUM_SAMPLE) {
+      char avg_time_str[128] = {0};
+
+      seconds_to_human_time(avg_time_str, sizeof(avg_time_str), binary_search_benchmark_gpu_total_time / binary_search_benchmark_gpu_num_completed);
+      printf("  GPU binary search benchmark: %u tables searched in %s.\n", BINARY_SEARCH_BENCHMARK_NUM_SAMPLE, avg_time_str);  fflush(stdout);
+
+      if (binary_search_benchmark_cpu_total_time > binary_search_benchmark_gpu_total_time) {
+	binary_search_mode = BINARY_SEARCH_MODE_GPU_OPTIMAL;
+	printf("  Choosing GPU for binary searching.\n");  fflush(stdout);
+      } else {
+	binary_search_mode = BINARY_SEARCH_MODE_CPU_OPTIMAL;
+	printf("  Choosing CPU for binary searching.\n");  fflush(stdout);
+      }
+    }
+  }
+
   seconds_to_human_time(time_searching_str, sizeof(time_searching_str), s_time);
   printf("  Table searched in %s.\n", time_searching_str);  fflush(stdout);
 
   time_searching += s_time;
+  FREE(precomputed_end_indices);
   FREE(args);
   FREE(threads);
 }
@@ -1720,7 +1949,7 @@ preloaded_table *get_preloaded_table() {
 }
 
 
-void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args) {
+void search_tables(cl_device_id *unused1, unsigned int unused2, unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args) {
   unsigned int num_uncracked = 0, current_table = 0;
   struct timespec start_time_table = {0};
   precomputed_and_potential_indices *ppi_cur = ppi;
@@ -1753,7 +1982,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
     printf("[%u of %u] Processing table: %s...\n", current_table, total_tables, pt->filepath);  fflush(stdout);
 
     start_timer(&start_time_table);
-    rt_binary_search(pt->rainbow_table, pt->num_chains, ppi);
+    rt_binary_search(args, pt->rainbow_table, pt->num_chains, ppi);
 
     num_chains_processed += pt->num_chains;
     num_tables_processed++;
@@ -2177,7 +2406,7 @@ int main(int ac, char **av) {
    * in the target directory.  Any matching indices will trigger false alarm checks. */
   total_tables = count_tables(rt_dir);
   start_timer(&search_start_time);
-  search_tables(total_tables, ppi_head, args);
+  search_tables(NULL, 0, total_tables, ppi_head, args);
 
   seconds_to_human_time(time_precomp_str, sizeof(time_precomp_str), time_precomp);
   seconds_to_human_time(time_io_str, sizeof(time_io_str), time_io);

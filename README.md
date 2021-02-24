@@ -59,6 +59,10 @@ Then starting the build with:
 
     # make clean; ./make_windows.sh
 
+However, if you prefer to build a complete package (which is useful for testing on other Windows machines), run:
+
+    # ./scripts/build_windows_zip.sh
+
 ## Change Log
 ### v1.3-dev (???)
  - Improved speed of NTLM9 precomputation by 9.5x and false alarm checks by 4.5x!

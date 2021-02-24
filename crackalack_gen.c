@@ -688,7 +688,7 @@ int main(int ac, char **av) {
   }
 
   /* Get the number of platforms and devices available. */
-  get_platforms_and_devices(MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, VERBOSE);
+  get_platforms_and_devices(-1, MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, VERBOSE);
 
   /* Check the device type and set flags.*/
   if (num_devices > 0) {

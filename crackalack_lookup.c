@@ -192,6 +192,9 @@ unsigned int is_amd_gpu = 0;
 /* The global work size, as over-ridden by the user on the command line. */
 size_t user_provided_gws = 0;
 
+/* The platform number to disable (-1 to not disable any). */
+int disable_platform = -1;
+
 /* The total number of precomputed indices loaded into memory.  Each one of these is
  * a cl_ulong (8 bytes). */
 uint64_t total_precomputed_indices_loaded = 0;
@@ -1414,10 +1417,17 @@ void print_eta_search(unsigned int num_tables_processed, unsigned int num_tables
 
 void print_usage_and_exit(char *prog_name, int exit_code) {
 #ifdef _WIN32
-  fprintf(stderr, "Usage: %s rainbow_table_directory (single_hash | filename_with_many_hashes.txt)\n\nExample:\n    %s D:\\rt_ntlm\\ 64f12cddaa88057e06a81b54e73b949b\n    %s D:\\rt_ntlm\\ C:\\Users\\jsmith\\Desktop\\hashes.txt [-gws GWS]\n\n", prog_name, prog_name, prog_name);
+  char *dir1 = "D:\\rt_ntlm\\";
+  char *dir2 = "C:\\Users\\jsmith\\Desktop\\";
 #else
-  fprintf(stderr, "Usage: %s rainbow_table_directory (single_hash | filename_with_many_hashes.txt)\n\nExample:\n    %s /export/rt_ntlm/ 64f12cddaa88057e06a81b54e73b949b\n    %s /export/rt_ntlm/ /home/user/hashes.txt [-gws GWS]\n\n", prog_name, prog_name, prog_name);
+  char *dir1 = "/export/rt_ntlm/";
+  char *dir2 = "/home/user/";
 #endif
+
+  fprintf(stderr, "%sUsage:%s %s rainbow_table_directory (single_hash | filename_with_many_hashes.txt) [-gws GWS] [-disable-platform N]\n\n", WHITEB, CLR, prog_name);
+  fprintf(stderr, "    %s-gws GWS%s    (Optional) Sets the global work size for each GPU.  This can significantly affect the speed.  To tune this setting, start with multiplying the max compute units by the max work group size (both are reported on program start-up).  Then increase/decrease the value and time the results.  For example, if the max compute units is 20, and the max work group size is 1024, try using 20 x 1024 = 20480, then 20480 - 1024 = 19456, 20480 - 2048 = 18432, 2048 + 1024 = 21504, etc.  If you find a value that works better than the automatic setting, please report your findings at: https://github.com/jtesta/rainbowcrackalack/issues\n\n", WHITEB, CLR);
+  fprintf(stderr, "    %s-disable-platform N%s    (Optional) Disables a platform from being used (platform numbers are reported on program start-up).  Useful when experiencing strange problems on mixed-GPU systems.  Try disabling each platform one at a time and see if the program behaves normally.\n\n\n", WHITEB, CLR);
+  fprintf(stderr, "%sExamples:%s\n    %s %s 64f12cddaa88057e06a81b54e73b949b\n    %s %s %shashes_one_per_line.txt\n    %s %s %spwdump.txt\n\n", WHITEB, CLR, prog_name, dir1, prog_name, dir1, dir2, prog_name, dir1, dir2);
   exit(exit_code);
 }
 
@@ -1820,12 +1830,18 @@ int main(int ac, char **av) {
   setlocale(LC_NUMERIC, "");
   if ((ac < 3) || (ac > 5))
     print_usage_and_exit(av[0], -1);
-  else if ((ac == 5) && (strcmp(av[3], "-gws") != 0))
+  else if ((ac == 5) && (strcmp(av[3], "-gws") != 0) && (strcmp(av[3], "-disable-platform") != 0))
     print_usage_and_exit(av[0], -1);
 
+  if (ac == 5) {
+    if (strcmp(av[3], "-gws") == 0)
+      user_provided_gws = (unsigned int)atoi(av[4]);
+    else if (strcmp(av[3], "-disable-platform") == 0)
+      disable_platform = (unsigned int)atoi(av[4]);
+  }
 
   /* Initialize the devices. */
-  get_platforms_and_devices(MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, VERBOSE);
+  get_platforms_and_devices(disable_platform, MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, VERBOSE);
 
   /* Check the device type and set flags.*/
   if (num_devices > 0) {
@@ -1863,9 +1879,7 @@ int main(int ac, char **av) {
     strncpy(hashcat_pot_filename, av[3], sizeof(hashcat_pot_filename) - 1);
     hashcat_pot_filename[sizeof(hashcat_pot_filename) - 1] = '\0';
     strncat(hashcat_pot_filename, ".hashcat", sizeof(hashcat_pot_filename) - 1);
-  } else if (ac == 5)
-    user_provided_gws = (unsigned int)atoi(av[4]);
-
+  }
 
   /* Open the JTR pot file for reading.  We will check the hash(es) to see if any are
    * already cracked. */

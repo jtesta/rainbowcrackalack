@@ -5,6 +5,6 @@
 
 #define VERSION "v1.3-dev"
 
-#define PRINT_PROJECT_HEADER() printf("\n%sRainbow Crackalack %s%s\nCopyright 2018-2020 Positron Security LLC <https://www.positronsecurity.com/>\n%sMake Rainbow Tables Great Again%s\n\n\n", WHITEB, VERSION, CLR, ITALICIZE, CLR);
+#define PRINT_PROJECT_HEADER() printf("\n%sRainbow Crackalack %s%s\nCopyright 2018-2021 Positron Security LLC <https://www.positronsecurity.com/>\n%sMake Rainbow Tables Great Again%s\n\n\n", WHITEB, VERSION, CLR, ITALICIZE, CLR);
 
 #endif

@@ -53,6 +53,7 @@ cl_int (*rc_clGetDeviceIDs)(cl_platform_id, cl_device_type, cl_uint, cl_device_i
 cl_int (*rc_clGetDeviceInfo)(cl_device_id, cl_device_info, size_t, void *, size_t *) = NULL;
 cl_int (*rc_clGetKernelWorkGroupInfo)(cl_kernel, cl_device_id, cl_kernel_work_group_info, size_t, void *, size_t *) = NULL;
 cl_int (*rc_clGetPlatformIDs)(cl_uint, cl_platform_id *, cl_uint *) = NULL;
+cl_int (*rc_clGetPlatformInfo)(cl_platform_id, cl_platform_info, size_t, void *, size_t *) = NULL;
 cl_int (*rc_clGetProgramBuildInfo)(cl_program, cl_device_id, cl_program_build_info, size_t, void *, size_t *) = NULL;
 cl_int (*rc_clReleaseCommandQueue)(cl_command_queue) = NULL;
 cl_int (*rc_clReleaseContext)(cl_context) = NULL;
@@ -144,8 +145,19 @@ void get_device_ulong(cl_device_id device, cl_device_info param, cl_ulong *ul) {
 }
 
 
+void get_platform_str(cl_platform_id platform, cl_platform_info param, char *buf, size_t buf_len) {
+  cl_int ret = rc_clGetPlatformInfo(platform, param, buf_len, buf, NULL);
+  if (ret != CL_SUCCESS) {
+    if (buf_len > 0)
+      buf[0] = '\0';
+
+    fprintf(stderr, "Error while getting platform info for parameter %d: %d\n", param, ret);  fflush(stderr);
+  }
+}
+
+
 /* Returns the array of platforms and devices. */
-void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *platforms, cl_uint *num_platforms, cl_uint devices_buffer_size, cl_device_id *devices, cl_uint *num_devices, unsigned int verbose) {
+void get_platforms_and_devices(int disable_platform, cl_uint platforms_buffer_size, cl_platform_id *platforms, cl_uint *num_platforms, cl_uint devices_buffer_size, cl_device_id *devices, cl_uint *num_devices, unsigned int verbose) {
   unsigned int i = 0;
   cl_int err = 0;
   cl_uint n = 0;
@@ -184,6 +196,7 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
     LOADFUNC(ocl, clGetDeviceInfo);
     LOADFUNC(ocl, clGetKernelWorkGroupInfo);
     LOADFUNC(ocl, clGetPlatformIDs);
+    LOADFUNC(ocl, clGetPlatformInfo);
     LOADFUNC(ocl, clGetProgramBuildInfo);
     LOADFUNC(ocl, clReleaseCommandQueue);
     LOADFUNC(ocl, clReleaseContext);
@@ -206,8 +219,20 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
     fprintf(stderr, "Number of platforms is < 1!\n");
     exit(-1);
   }
-  if (verbose)
+  if (verbose) {
     printf("Found %u platforms.\n", *num_platforms);
+    print_platform_info(platforms, *num_platforms);
+  }
+
+  /* Disable a platform if the user requests it. */
+  if ((disable_platform >= 0) && (disable_platform < *num_platforms)) {
+    printf("Per user request, platform #%u is disabled.  Note that platform numbers reported below will be re-numbered.\n", disable_platform);
+
+    for (i = disable_platform; i < *num_platforms - 1; i++)
+      platforms[i] = platforms[i + 1];
+
+    (*num_platforms)--;
+  }
 
 #ifdef TRAVIS_BUILD
   device_type = CL_DEVICE_TYPE_CPU;
@@ -226,8 +251,13 @@ void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *pl
     else {
       *num_devices += n;
       if (verbose)
-	printf("Found %u devices on platform #%u.\n", *num_devices, i);
+	printf("Found %u devices on platform #%u.\n", n, i);
     }
+  }
+
+  if (*num_devices == 0) {
+    printf("\nNo devices available.  Terminating.\n");
+    exit(-1);
   }
 
   if (verbose)
@@ -357,7 +387,7 @@ void load_kernel(cl_context context, cl_uint num_devices, const cl_device_id *de
 }
 
 
-/* Prints debugging information about devices.  Returns 0 - num_devices-1 if an Intel + AMD/NVIDIA setup is found; this signifies the index in devices[] where the Intel GPU is.  Otherwise returns -1. */
+/* Prints debugging information about devices. */
 void print_device_info(cl_device_id *devices, cl_uint num_devices) {
   int i = 0;
   char device_name[64] = {0};
@@ -390,6 +420,32 @@ void print_device_info(cl_device_id *devices, cl_uint num_devices) {
     printf("\tGlobal memory size: %"PRIu64"\n", global_memsize);
     if (b == 0)
       printf("\t---> NOT AVAILABLE!\n");
+    printf("\n");
+  }
+  fflush(stdout);
+}
+
+
+/* Prints debugging information about platforms. */
+void print_platform_info(cl_platform_id *platforms, cl_uint num_platforms) {
+  unsigned int i = 0;
+  char platform_profile[128] = {0};
+  char platform_version[128] = {0};
+  char platform_name[128] = {0};
+  char platform_vendor[128] = {0};
+
+
+  for (i = 0; i < num_platforms; i++) {
+    get_platform_str(platforms[i], CL_PLATFORM_PROFILE, platform_profile, sizeof(platform_profile) - 1);
+    get_platform_str(platforms[i], CL_PLATFORM_VERSION, platform_version, sizeof(platform_version) - 1);
+    get_platform_str(platforms[i], CL_PLATFORM_NAME, platform_name, sizeof(platform_name) - 1);
+    get_platform_str(platforms[i], CL_PLATFORM_VENDOR, platform_vendor, sizeof(platform_vendor) - 1);
+
+    printf("Platform #%u:\n", i);
+    printf("\tVendor: %s\n", platform_vendor);
+    printf("\tName: %s\n", platform_name);
+    printf("\tVersion: %s\n", platform_version);
+    printf("\tProfile: %s\n", platform_profile);
     printf("\n");
   }
   fflush(stdout);

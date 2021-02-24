@@ -58,7 +58,7 @@ int main(int ac, char **av) {
   setenv("CUDA_CACHE_DISABLE", "1", 1); /* Disables kernel caching. */
   setenv("HSA_ENABLE_SDMA", "0", 1); /* The ROCm driver on AMD Vega 64 doesn't work without this. */
 #endif
-  get_platforms_and_devices(MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, 1);
+  get_platforms_and_devices(-1, MAX_NUM_PLATFORMS, platforms, &num_platforms, MAX_NUM_DEVICES, devices, &num_devices, 1);
 
   context = rc_clCreateContext(NULL, num_devices, devices, context_callback, NULL, &err);
   if (err < 0) {

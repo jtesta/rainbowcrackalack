@@ -38,6 +38,7 @@ extern cl_int (*rc_clGetDeviceIDs)(cl_platform_id, cl_device_type, cl_uint, cl_d
 extern cl_int (*rc_clGetDeviceInfo)(cl_device_id, cl_device_info, size_t, void *, size_t *);
 extern cl_int (*rc_clGetKernelWorkGroupInfo)(cl_kernel, cl_device_id, cl_kernel_work_group_info, size_t, void *, size_t *);
 extern cl_int (*rc_clGetPlatformIDs)(cl_uint, cl_platform_id *, cl_uint *);
+extern cl_int (*rc_clGetPlatformInfo)(cl_platform_id, cl_platform_info, size_t, void *, size_t *);
 extern cl_int (*rc_clGetProgramBuildInfo)(cl_program, cl_device_id, cl_program_build_info, size_t, void *, size_t *);
 extern cl_int (*rc_clReleaseCommandQueue)(cl_command_queue);
 extern cl_int (*rc_clReleaseContext)(cl_context);
@@ -111,11 +112,13 @@ extern cl_int (*rc_clSetKernelArg)(cl_kernel, cl_uint, size_t, const void *);
 
 void context_callback(const char *errinfo, const void *private_info, size_t cb, void *user_data);
 void get_device_bool(cl_device_id device, cl_device_info param, cl_bool *b);
-void get_platforms_and_devices(cl_uint platforms_buffer_size, cl_platform_id *platforms, cl_uint *num_platforms, cl_uint devices_buffer_size, cl_device_id *devices, cl_uint *num_devices, unsigned int verbose);
+void get_platforms_and_devices(int disable_platform, cl_uint platforms_buffer_size, cl_platform_id *platforms, cl_uint *num_platforms, cl_uint devices_buffer_size, cl_device_id *devices, cl_uint *num_devices, unsigned int verbose);
 void get_device_str(cl_device_id device, cl_device_info param, char *buf, int buf_len);
 void get_device_uint(cl_device_id device, cl_device_info param, cl_uint *u);
 void get_device_ulong(cl_device_id device, cl_device_info param, cl_ulong *ul);
+void get_platform_str(cl_platform_id device, cl_platform_info param, char *buf, size_t buf_len);
 void load_kernel(cl_context context, cl_uint num_devices, const cl_device_id *devices, const char *path, const char *kernel_name, cl_program *program, cl_kernel *kernel, unsigned int hash_type);
 void print_device_info(cl_device_id *devices, cl_uint num_devices);
+void print_platform_info(cl_platform_id *platforms, cl_uint num_platforms);
 
 #endif

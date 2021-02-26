@@ -71,6 +71,8 @@ However, if you prefer to build a complete package (which is useful for testing 
  - Added time estimates for precomputation phase.
  - Disable Intel GPUs when found on systems with AMD or NVIDIA GPUs.
  - Fixed bug in counting tables during lookup.
+ - Fixed bug where lookups would continue even though all hashes were cracked.
+ - Fixed cache lookup when a single hash in uppercase was provided.
  - Added lookup colors.
 
 ### v1.2 (April 2, 2020)

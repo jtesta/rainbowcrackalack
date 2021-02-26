@@ -1,6 +1,6 @@
 /*
  * Rainbow Crackalack: crackalack_lookup.c
- * Copyright (C) 2018-2020  Joe Testa <jtesta@positronsecurity.com>
+ * Copyright (C) 2018-2021  Joe Testa <jtesta@positronsecurity.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms version 3 of the GNU General Public License as
@@ -151,7 +151,7 @@ typedef struct {
 
 unsigned int count_tables(char *dir);
 void find_rt_params(char *dir, rt_parameters *rt_params);
-void free_loaded_hashes(char **usernames, char **hashes, unsigned int *num_hashes);
+void free_loaded_hashes(char **usernames, char **hashes);
 void *host_thread_false_alarm(void *ptr);
 void *preloading_thread(void *ptr);
 void print_eta_precompute();
@@ -230,6 +230,9 @@ struct timespec precompute_start_time = {0};
 
 /* The time at which table searching begins. */
 struct timespec search_start_time = {0};
+
+/* Number of uncracked hashes. */
+unsigned int num_hashes = 0;
 
 /* Number of hashes precomputed so far. */
 unsigned int num_hashes_precomputed = 0;
@@ -521,23 +524,23 @@ unsigned int count_tables(char *dir) {
 
 
 /* Free the hashes we loaded from disk or command line. */
-void free_loaded_hashes(char **usernames, char **hashes, unsigned int *num_hashes) {
+void free_loaded_hashes(char **usernames, char **hashes) {
   unsigned int i = 0;
 
   if (usernames != NULL) {
-    for (i = 0; i < *num_hashes; i++) {
+    for (i = 0; i < num_hashes; i++) {
       FREE(usernames[i]);
     }
     FREE(usernames);
   }
 
   if (hashes != NULL) {
-    for (i = 0; i < *num_hashes; i++) {
+    for (i = 0; i < num_hashes; i++) {
       FREE(hashes[i]);
     }
     FREE(hashes);
   }
-  *num_hashes = 0;
+  num_hashes = 0;
 }
 
 
@@ -1411,7 +1414,7 @@ void print_eta_search(unsigned int num_tables_processed, unsigned int num_tables
 
     seconds_to_human_time(eta_str, sizeof(eta_str), num_seconds_left);
   }
-  printf("  Estimated time remaining (at most): %s\n\n", eta_str); fflush(stdout);
+  printf("  Estimated time remaining (at most): %s\n", eta_str); fflush(stdout);
 }
 
 
@@ -1733,13 +1736,15 @@ preloaded_table *get_preloaded_table() {
 void search_tables(unsigned int total_tables, precomputed_and_potential_indices *ppi, thread_args *args) {
   unsigned int num_uncracked = 0, current_table = 0;
   struct timespec start_time_table = {0};
-  precomputed_and_potential_indices *ppi_cur = ppi;
+  precomputed_and_potential_indices *ppi_cur = NULL;
   preloaded_table *pt = NULL;
 
 
   while (1) {
 
     /* Count the number of uncracked hashes we have left. */
+    ppi_cur = ppi;
+    num_uncracked = 0;
     while (ppi_cur != NULL) {
       if (ppi_cur->plaintext == NULL)
 	num_uncracked++;
@@ -1779,6 +1784,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
 
     printf("  Table fully processed in %.1f seconds.\n", get_elapsed(&start_time_table)); fflush(stdout);
     print_eta_search(num_tables_processed, total_tables);
+    printf("  Cracked %u of %u hashes.\n\n", num_cracked, num_hashes);
 
     /* We checked the potential matches above, so there's nothing else to do with
      * them. */
@@ -1806,7 +1812,7 @@ void search_tables(unsigned int total_tables, precomputed_and_potential_indices 
 
 int main(int ac, char **av) {
   char *rt_dir = NULL, *single_hash = NULL, *filename = NULL, *file_data = NULL, **usernames = NULL, **hashes = NULL, *line = NULL, *pot_file_data = NULL;
-  unsigned int i = 0, j = 0, max_num_hashes = 0, num_hashes = 0, num_colons = 0, file_format = 0, err = 0;
+  unsigned int i = 0, j = 0, max_num_hashes = 0, num_colons = 0, file_format = 0, err = 0;
   FILE *f = NULL;
   struct stat st = {0};
   thread_args *args = NULL;
@@ -1913,6 +1919,9 @@ int main(int ac, char **av) {
     filename = av[2];
   else {
     single_hash = av[2];
+
+    /* Ensure that hash is lowercase. */
+    str_to_lowercase(single_hash);
 
     /* If this hash is already in the pot file, then there's nothing else to do. */
     if (pot_file_data && strstr(pot_file_data, single_hash)) {
@@ -2092,8 +2101,6 @@ int main(int ac, char **av) {
       goto err;
     }
 
-    /* Ensure that hash is lowercase. */
-    str_to_lowercase(single_hash);
     usernames[0] = NULL;
     hashes[0] = strdup(single_hash);
     num_hashes = 1;
@@ -2226,7 +2233,7 @@ int main(int ac, char **av) {
   printf(" %s* Statistics *%s\n\n          Number of tables processed: %u\n              Number of false alarms: %" QUOTE PRIu64"\n          Number of chains processed: %" QUOTE PRIu64"\n\n                Time spent per table: %s\n     False alarms checked per second: %" QUOTE ".1f\n\n         False alarms per no. chains: %.5f%%\n  Successful cracks per false alarms: %.5f%%\n  Successful cracks per total chains: %.8f%%\n\n\n", WHITEB, CLR, num_tables_processed, num_falsealarms, num_chains_processed, time_per_table_str, (double)num_falsealarms / time_falsealarms, ((double)num_falsealarms / (double)num_chains_processed) * 100.0, ((double)num_cracked / (double)num_falsealarms) * 100.0, ((double)num_cracked / (double)num_chains_processed) * 100.0);
 
   free_precomputed_and_potential_indices(&ppi_head);
-  free_loaded_hashes(usernames, hashes, &num_hashes);
+  free_loaded_hashes(usernames, hashes);
   FREE(args);
   pthread_barrier_destroy(&barrier);
   return 0;
@@ -2235,7 +2242,7 @@ int main(int ac, char **av) {
   FCLOSE(f);
   FREE(file_data);
   free_precomputed_and_potential_indices(&ppi_head);
-  free_loaded_hashes(usernames, hashes, &num_hashes);
+  free_loaded_hashes(usernames, hashes);
   FREE(args);
   pthread_barrier_destroy(&barrier);
   return -1;

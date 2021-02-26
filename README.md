@@ -64,7 +64,7 @@ However, if you prefer to build a complete package (which is useful for testing 
     # ./scripts/build_windows_zip.sh
 
 ## Change Log
-### v1.3-dev (???)
+### v1.3 (February 26, 2021)
  - Improved speed of NTLM9 precomputation by 9.5x and false alarm checks by 4.5x!
  - Fixed lookup on AMD ROCm.
  - Added support for pwdump-formatted hash files.

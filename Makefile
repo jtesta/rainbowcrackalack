@@ -67,7 +67,7 @@ $(ENUMERATE_PROG):	cpu_rt_functions.o enumerate_chain.o test_shared.o
 
 
 clean:
-	rm -f *~ *.o *.exe *.zip crackalack_gen crackalack_unit_tests get_chain crackalack_verify crackalack_rtc2rt crackalack_lookup perfectify
+	rm -f *~ *.o *.exe *.zip crackalack_gen crackalack_unit_tests get_chain crackalack_verify crackalack_rtc2rt crackalack_lookup perfectify enumerate_chain
 
 archive: clean
 	./scripts/archive.sh

@@ -222,14 +222,16 @@ void *host_thread(void *ptr) {
     kernel_path = CRACKALACK_NTLM8_KERNEL_PATH;
     kernel_name = "crackalack_ntlm8";
     if (args->gpu.device_number == 0) { /* Only the first thread prints this. */
-      printf("Note: optimized NTLM8 kernel will be used.\n"); fflush(stdout);
+      printf("%sNote: optimized NTLM8 kernel will be used.%s\n", GREENB, CLR); fflush(stdout);
     }
   } else if (is_ntlm9(args->hash_type, args->charset, args->plaintext_len_min, args->plaintext_len_max, args->reduction_offset, args->chain_len)) {
     kernel_path = CRACKALACK_NTLM9_KERNEL_PATH;
     kernel_name = "crackalack_ntlm9";
     if (args->gpu.device_number == 0) { /* Only the first thread prints this. */
-      printf("Note: optimized NTLM9 kernel will be used.\n"); fflush(stdout);
+      printf("%sNote: optimized NTLM9 kernel will be used.%s\n", GREENB, CLR); fflush(stdout);
     }
+  } else {
+    printf("%sWARNING: non-optimized kernel will be used since non-standard options were given!  Generation will be much slower.  (Hint: use \"crackalack_gen ntlm ascii-32-95 8 8 0 422000 67108864 X\" for optimized NTLM8 generation, or \"crackalack_gen ntlm ascii-32-95 9 9 0 803000 67108864 X\" for optimized NTLM9 generation.)%s\n", YELLOWB, CLR); fflush(stdout);
   }
 
   /* Get the number of compute units in this device. */

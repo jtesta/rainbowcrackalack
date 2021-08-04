@@ -8,6 +8,8 @@ char *WHITEB = "\033[1;97m"; /* White + bold */
 char *ITALICIZE = "\033[3m";
 char *GREEN  = "\033[0;92m";
 char *GREENB = "\033[1;92m"; /* Green + bold */
+char *YELLOW  = "\033[0;93m";
+char *YELLOWB = "\033[1;93m"; /* Yellow + bold */
 char *RED  = "\033[0;91m";
 char *REDB = "\033[1;91m"; /* Red + bold */
 
@@ -25,17 +27,21 @@ char *REDB = "\033[1;91m"; /* Red + bold */
     WHITEB = "";							\
     ITALICIZE = "";							\
     GREEN = "";								\
-    RED = "";								\
     GREENB = "";							\
+    YELLOW = "";							\
+    YELLOWB = "";							\
+    RED = "";								\
     REDB = "";								\
   }
 
-#else
+#else  /* On Linux... */
 char *CLR = "\033[0m";
 char *WHITEB = "\033[1;97m"; /* White + bold */
 char *ITALICIZE = "\033[3m";
 char *GREEN  = "\033[0;32m";
 char *GREENB = "\033[1;32m"; /* Green + bold */
+char *YELLOW  = "\033[0;33m";
+char *YELLOWB = "\033[1;33m"; /* Yellow + bold */
 char *RED  = "\033[0;31m";
 char *REDB = "\033[1;31m"; /* Red + bold */
 

@@ -3,6 +3,7 @@
 *.exe
 *.zip
 *.pyc
+*.sig
 rcracki.precalc.*
 *.rt
 *.rt.log
